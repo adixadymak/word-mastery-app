@@ -129,6 +129,33 @@
         line-height: 1.4;
       }
 
+      /* Leaderboard Style */
+      #leaderboard-list {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .leaderboard-row {
+        display: flex;
+        justify-content: space-between;
+        background: var(--bg-panel-light);
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-family: "Baloo 2", sans-serif;
+      }
+
+      .leaderboard-row.me {
+        border: 2px solid var(--gold);
+      }
+
+      #my-rank {
+        margin-top: 10px;
+        color: var(--chalk-dim);
+        font-size: 0.9rem;
+      }
+
       /* Login */
       #roster-grid {
         display: flex;
@@ -426,6 +453,11 @@
 
       <!-- MENU -->
       <section id="screen-menu" class="screen">
+        <div class="card" id="leaderboard-card">
+          <h3>🏆 Top Scores</h3>
+          <div id="leaderboard-list"></div>
+          <div id="my-rank"></div>
+        </div>
         <div class="card">
           <h2 id="menu-greeting">What do you want to practice?</h2>
           <div class="material-row" id="material-row"></div>
@@ -670,6 +702,7 @@
       function renderMenu() {
         document.getElementById("menu-greeting").textContent =
           `Hi ${state.child}! What do you want to practice?`;
+        renderLeaderboard();
         materialRow.innerHTML = "";
         submenu.innerHTML = "";
         Object.keys(MATERIAL_LABELS).forEach((matKey) => {
@@ -680,6 +713,44 @@
           card.onclick = () => renderSubmenu(matKey);
           materialRow.appendChild(card);
         });
+      }
+
+      // Leaderboard Script
+      function getLeaderboard() {
+        const entries = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key.startsWith("wordmastery_")) {
+            const name = key.replace("wordmastery_", "");
+            const data = JSON.parse(localStorage.getItem(key));
+            entries.push({ name, score: data.score || 0 });
+          }
+        }
+        entries.sort((a, b) => b.score - a.score);
+        return entries;
+      }
+
+      function renderLeaderboard() {
+        const board = getLeaderboard();
+        const medals = ["🥇", "🥈", "🥉"];
+        const list = document.getElementById("leaderboard-list");
+        list.innerHTML = board
+          .slice(0, 3)
+          .map(
+            (e, i) =>
+              `<div class="leaderboard-row ${e.name === state.child ? "me" : ""}"> 
+       <span>${medals[i]} ${e.name}</span> <span>${e.score}</span>
+      </div>
+    `,
+          )
+          .join("");
+
+        const myRank = board.findIndex((e) => e.name === state.child) + 1;
+        const myRankEl = document.getElementById("my-rank");
+        myRankEl.textContent =
+          myRank > 3
+            ? `You're #${myRank} with ${board[myRank - 1].score} points - keep going!`
+            : "";
       }
 
       function renderSubmenu(material) {
