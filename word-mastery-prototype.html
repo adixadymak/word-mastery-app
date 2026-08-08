@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Word Mastery — Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="Sortable.min.js"></script>
+    <style>
+      :root {
+        --bg-deep: #1e2a3a;
+        --bg-panel: #26374a;
+        --bg-panel-light: #31445a;
+        --chalk: #f4efe6;
+        --chalk-dim: #b9c3ce;
+        --coral: #ff6b5b;
+        --coral-dark: #e0503f;
+        --gold: #ffc94a;
+        --teal: #4ecdc4;
+        --tile-wood: #f0dfc0;
+        --tile-text: #3b2a1e;
+        --math: #5b8def;
+        --science: #4fb286;
+        --phe: #ff9f5b;
+        --wb: #b57edc;
+        --radius: 16px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(
+            circle at 15% 10%,
+            rgba(255, 255, 255, 0.04),
+            transparent 40%
+          ),
+          radial-gradient(
+            circle at 85% 80%,
+            rgba(255, 255, 255, 0.03),
+            transparent 40%
+          ),
+          var(--bg-deep);
+        color: var(--chalk);
+        font-family: "Atkinson Hyperlegible", sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px 12px 60px;
+      }
+      h1,
+      h2,
+      h3,
+      .display {
+        font-family: "Baloo 2", sans-serif;
+        font-weight: 700;
+        margin: 0;
+      }
+      #topbar {
+        width: 100%;
+        max-width: 560px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 18px;
+      }
+      #topbar .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1.3rem;
+      }
+      #topbar .brand .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--coral);
+        box-shadow: 0 0 0 4px rgba(255, 107, 91, 0.25);
+      }
+      #stats {
+        display: none;
+        gap: 14px;
+        font-size: 0.95rem;
+        background: var(--bg-panel);
+        padding: 8px 14px;
+        border-radius: 999px;
+      }
+      #stats span {
+        white-space: nowrap;
+      }
+      main {
+        width: 100%;
+        max-width: 560px;
+      }
+      .screen {
+        display: none;
+      }
+      .screen.active {
+        display: block;
+        animation: fadeIn 0.25s ease;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .card {
+        background: var(--bg-panel);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+      .subtitle {
+        color: var(--chalk-dim);
+        font-size: 0.95rem;
+        margin-top: 6px;
+        line-height: 1.4;
+      }
+
+      /* Login */
+      #roster-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .name-chip {
+        background: var(--bg-panel-light);
+        border: 2px solid transparent;
+        color: var(--chalk);
+        padding: 12px 18px;
+        border-radius: 999px;
+        font-family: "Baloo 2", sans-serif;
+        font-size: 1.05rem;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+      .name-chip:hover {
+        border-color: var(--teal);
+      }
+      .name-chip.selected {
+        background: var(--teal);
+        color: var(--bg-deep);
+        border-color: var(--teal);
+      }
+      #pin-area {
+        margin-top: 18px;
+        display: none;
+      }
+      #pin-input {
+        font-family: "Baloo 2", sans-serif;
+        font-size: 1.6rem;
+        letter-spacing: 10px;
+        width: 160px;
+        text-align: center;
+        padding: 10px;
+        border-radius: 12px;
+        border: none;
+        background: var(--bg-deep);
+        color: var(--chalk);
+      }
+      .btn {
+        font-family: "Baloo 2", sans-serif;
+        font-size: 1rem;
+        border: none;
+        border-radius: 12px;
+        padding: 12px 20px;
+        cursor: pointer;
+        font-weight: 700;
+        transition: transform 0.1s ease;
+      }
+      .btn:active {
+        transform: scale(0.96);
+      }
+      .btn-primary {
+        background: var(--coral);
+        color: white;
+      }
+      .btn-secondary {
+        background: var(--bg-panel-light);
+        color: var(--chalk);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--chalk-dim);
+        border: 2px solid var(--bg-panel-light);
+      }
+      #login-error {
+        color: var(--coral);
+        margin-top: 10px;
+        font-size: 0.9rem;
+        min-height: 1.2em;
+      }
+
+      /* Menu */
+      .material-row {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 14px;
+      }
+      .material-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--bg-panel-light);
+        padding: 16px 18px;
+        border-radius: 14px;
+        cursor: pointer;
+        border-left: 6px solid var(--teal);
+      }
+      .material-card.part1 {
+        border-left-color: var(--gold);
+      }
+      .material-card.part2 {
+        border-left-color: var(--coral);
+      }
+      .material-card.wordbank {
+        border-left-color: var(--wb);
+      }
+      .material-card h3 {
+        font-size: 1.1rem;
+      }
+      .material-card .subtitle {
+        margin-top: 2px;
+      }
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .mode-chip {
+        background: var(--bg-panel-light);
+        padding: 8px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        border: 2px solid transparent;
+      }
+      .mode-chip.subject-math {
+        border-color: var(--math);
+      }
+      .mode-chip.subject-science {
+        border-color: var(--science);
+      }
+      .mode-chip.subject-phe {
+        border-color: var(--phe);
+      }
+      .mode-chip:hover {
+        background: var(--bg-deep);
+      }
+
+      /* Game */
+      #clue-placard {
+        background: var(--bg-panel-light);
+        border-radius: 18px;
+        padding: 26px 20px;
+        text-align: center;
+        margin-bottom: 22px;
+      }
+      #clue-ipa {
+        font-family: "Baloo 2", sans-serif;
+        font-size: 2.1rem;
+        letter-spacing: 1px;
+        color: var(--gold);
+      }
+      #clue-label {
+        color: var(--chalk-dim);
+        font-size: 0.85rem;
+        margin-top: 6px;
+      }
+
+      #tile-tray {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        min-height: 64px;
+        padding: 10px;
+        border-radius: 14px;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.02);
+      }
+      #answer-wrap {
+        position: relative;
+        margin-bottom: 18px;
+        min-height: 64px;
+      }
+      #slot-outline,
+      #answer-slots {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 10px;
+        justify-content: center;
+      }
+      #slot-outline {
+        pointer-events: none;
+        z-index: 0;
+      }
+      #answer-slots {
+        z-index: 1;
+      }
+      .slot-box {
+        width: 52px;
+        height: 52px;
+        border: 3px dashed var(--bg-panel-light);
+        border-radius: 10px;
+      }
+
+      .answer-slot {
+        width: 52px;
+        height: 52px;
+      }
+      .tile {
+        background: var(--tile-wood);
+        color: var(--tile-text);
+        font-family: "Baloo 2", sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        width: 52px;
+        height: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+        cursor: grab;
+        user-select: none;
+      }
+      .tile:active {
+        cursor: grabbing;
+        transform: scale(0.93);
+      }
+      .tile {
+        transition: transform 0.08s ease;
+      }
+      .sortable-ghost {
+        opacity: 0.3;
+      }
+
+      #game-controls {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 22px;
+      }
+      #feedback {
+        text-align: center;
+        margin-top: 14px;
+        font-family: "Baloo 2", sans-serif;
+        font-size: 1.1rem;
+        min-height: 1.4em;
+      }
+      #feedback.correct {
+        color: var(--science);
+      }
+      #feedback.wrong {
+        color: var(--coral);
+      }
+      #exit-row {
+        text-align: center;
+        margin-top: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="topbar">
+      <div class="brand">
+        <span class="dot"></span><span>Word Mastery</span>
+      </div>
+      <div id="stats">
+        <span id="stat-score">⭐ 0</span><span id="stat-streak">🔥 0</span>
+      </div>
+    </div>
+
+    <main>
+      <!-- LOGIN -->
+      <section id="screen-login" class="screen active">
+        <div class="card">
+          <h2>Who's playing?</h2>
+          <p class="subtitle">
+            Pick your name from the list, then enter your PIN.
+          </p>
+          <div id="roster-grid"></div>
+          <div id="pin-area">
+            <p class="subtitle" id="pin-prompt"></p>
+            <input
+              id="pin-input"
+              type="password"
+              inputmode="numeric"
+              maxlength="4"
+              placeholder="••••"
+            />
+            <div style="margin-top: 12px">
+              <button class="btn btn-primary" id="pin-submit">Enter</button>
+            </div>
+            <div id="login-error"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- MENU -->
+      <section id="screen-menu" class="screen">
+        <div class="card">
+          <h2 id="menu-greeting">What do you want to practice?</h2>
+          <div class="material-row" id="material-row"></div>
+          <div id="submenu"></div>
+        </div>
+      </section>
+
+      <!-- GAME -->
+      <section id="screen-game" class="screen">
+        <div id="clue-placard">
+          <div id="clue-ipa">/ /</div>
+          <div id="clue-label">Drag or tap the letters to spell the word</div>
+        </div>
+
+        <div id="answer-wrap">
+          <div id="slot-outline"></div>
+          <div id="answer-slots"></div>
+        </div>
+        <div id="tile-tray"></div>
+
+        <div id="game-controls">
+          <button class="btn btn-primary" id="btn-check">Check</button>
+          <button class="btn btn-secondary" id="btn-skip">Skip word</button>
+        </div>
+        <div id="feedback"></div>
+        <div id="exit-row">
+          <button class="btn btn-ghost" id="btn-exit">Exit to menu</button>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      /* ---------------------------------------------------
+   DUMMY DATA — replace with real word bank JSON later
+--------------------------------------------------- */
+      const ROSTER = [
+        { name: "Aisha", pin: "1111" },
+        { name: "Mateo", pin: "2222" },
+        { name: "Zara", pin: "3333" },
+        { name: "Kofi", pin: "4444" },
+      ];
+
+      const WORDS = [
+        { id: 1, material: "part1", page: 1, word: "cat", ipa: "/kæt/" },
+        { id: 2, material: "part1", page: 1, word: "dog", ipa: "/dɒɡ/" },
+        { id: 3, material: "part1", page: 2, word: "fish", ipa: "/fɪʃ/" },
+        { id: 4, material: "part1", page: 2, word: "bird", ipa: "/bɜːd/" },
+
+        { id: 5, material: "part2", page: 1, word: "light", ipa: "/laɪt/" },
+        { id: 6, material: "part2", page: 1, word: "night", ipa: "/naɪt/" },
+        { id: 7, material: "part2", page: 2, word: "thought", ipa: "/θɔːt/" },
+
+        {
+          id: 8,
+          material: "wordbank",
+          page: 1,
+          topic: "mathematics",
+          word: "add",
+          ipa: "/æd/",
+        },
+        {
+          id: 9,
+          material: "wordbank",
+          page: 1,
+          topic: "mathematics",
+          word: "number",
+          ipa: "/ˈnʌmbə/",
+        },
+        {
+          id: 10,
+          material: "wordbank",
+          page: 2,
+          topic: "science",
+          word: "plant",
+          ipa: "/plɑːnt/",
+        },
+        {
+          id: 11,
+          material: "wordbank",
+          page: 2,
+          topic: "science",
+          word: "energy",
+          ipa: "/ˈɛnədʒi/",
+        },
+        {
+          id: 12,
+          material: "wordbank",
+          page: 3,
+          topic: "phe",
+          word: "jump",
+          ipa: "/dʒʌmp/",
+        },
+        {
+          id: 13,
+          material: "wordbank",
+          page: 3,
+          topic: "phe",
+          word: "run",
+          ipa: "/rʌn/",
+        },
+      ];
+
+      const MATERIAL_LABELS = {
+        part1: {
+          title: "Part 1",
+          subtitle: "Foundation decoding words",
+          cls: "part1",
+        },
+        part2: {
+          title: "Part 2",
+          subtitle: "Advanced decoding words",
+          cls: "part2",
+        },
+        wordbank: {
+          title: "Word Bank",
+          subtitle: "Common words by subject",
+          cls: "wordbank",
+        },
+      };
+
+      /* ---------------------------------------------------
+   STATE
+--------------------------------------------------- */
+      let state = {
+        child: null,
+        deepLink: parseDeepLink(),
+        queue: [],
+        index: 0,
+        score: 0,
+        streak: 0,
+        attempts: 0,
+      };
+
+      function parseDeepLink() {
+        const params = new URLSearchParams(window.location.search);
+        if (!params.has("material")) return null;
+        return {
+          material: params.get("material"),
+          page: params.get("page") ? parseInt(params.get("page")) : null,
+          topic: params.get("topic"),
+          locked: params.get("locked") === "true",
+        };
+      }
+
+      /* ---------------------------------------------------
+   LOGIN
+--------------------------------------------------- */
+      const rosterGrid = document.getElementById("roster-grid");
+      const pinArea = document.getElementById("pin-area");
+      const pinPrompt = document.getElementById("pin-prompt");
+      const pinInput = document.getElementById("pin-input");
+      const loginError = document.getElementById("login-error");
+      let pendingName = null;
+
+      ROSTER.forEach((r) => {
+        const chip = document.createElement("div");
+        chip.className = "name-chip";
+        chip.textContent = r.name;
+        chip.onclick = () => {
+          document
+            .querySelectorAll(".name-chip")
+            .forEach((c) => c.classList.remove("selected"));
+          chip.classList.add("selected");
+          pendingName = r.name;
+          pinPrompt.textContent = `Enter ${r.name}'s PIN`;
+          pinArea.style.display = "block";
+          pinInput.value = "";
+          loginError.textContent = "";
+          pinInput.focus();
+        };
+        rosterGrid.appendChild(chip);
+      });
+
+      document.getElementById("pin-submit").onclick = attemptLogin;
+      pinInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") attemptLogin();
+      });
+
+      function attemptLogin() {
+        const record = ROSTER.find((r) => r.name === pendingName);
+        if (record && record.pin === pinInput.value) {
+          state.child = record.name;
+          document.getElementById("stats").style.display = "flex";
+          loadProgress();
+          if (state.deepLink) {
+            startFromDeepLink();
+          } else {
+            showScreen("menu");
+            renderMenu();
+          }
+        } else {
+          loginError.textContent = "That PIN doesn't match — try again.";
+        }
+      }
+
+      /* ---------------------------------------------------
+   PROGRESS (localStorage stand-in for future Firebase)
+--------------------------------------------------- */
+      function progressKey() {
+        return `wordmastery_${state.child}`;
+      }
+      function loadProgress() {
+        const raw = localStorage.getItem(progressKey());
+        const data = raw ? JSON.parse(raw) : { score: 0, streak: 0 };
+        state.score = data.score;
+        state.streak = data.streak;
+        updateStatsBar();
+      }
+      function saveProgress() {
+        localStorage.setItem(
+          progressKey(),
+          JSON.stringify({ score: state.score, streak: state.streak }),
+        );
+        updateStatsBar();
+      }
+      function updateStatsBar() {
+        document.getElementById("stat-score").textContent = `⭐ ${state.score}`;
+        document.getElementById("stat-streak").textContent =
+          `🔥 ${state.streak}`;
+      }
+
+      /* ---------------------------------------------------
+   SCREEN SWITCHING
+--------------------------------------------------- */
+      function showScreen(name) {
+        document
+          .querySelectorAll(".screen")
+          .forEach((s) => s.classList.remove("active"));
+        document.getElementById("screen-" + name).classList.add("active");
+      }
+
+      /* ---------------------------------------------------
+   MENU
+--------------------------------------------------- */
+      const materialRow = document.getElementById("material-row");
+      const submenu = document.getElementById("submenu");
+
+      function renderMenu() {
+        document.getElementById("menu-greeting").textContent =
+          `Hi ${state.child}! What do you want to practice?`;
+        materialRow.innerHTML = "";
+        submenu.innerHTML = "";
+        Object.keys(MATERIAL_LABELS).forEach((matKey) => {
+          const info = MATERIAL_LABELS[matKey];
+          const card = document.createElement("div");
+          card.className = `material-card ${info.cls}`;
+          card.innerHTML = `<div><h3>${info.title}</h3><div class="subtitle">${info.subtitle}</div></div><div>▶</div>`;
+          card.onclick = () => renderSubmenu(matKey);
+          materialRow.appendChild(card);
+        });
+      }
+
+      function renderSubmenu(material) {
+        const words = WORDS.filter((w) => w.material === material);
+        const pages = [...new Set(words.map((w) => w.page))].sort(
+          (a, b) => a - b,
+        );
+
+        let html = `<div class="card"><h3>${MATERIAL_LABELS[material].title}</h3>`;
+        html += `<p class="subtitle">Choose how to practice:</p>`;
+        html += `<div class="chip-row" id="page-chips"></div>`;
+
+        if (material === "wordbank") {
+          const topics = [...new Set(words.map((w) => w.topic))];
+          html += `<p class="subtitle" style="margin-top:14px;">Or by subject:</p>`;
+          html += `<div class="chip-row" id="topic-chips"></div>`;
+          html += `<p class="subtitle" style="margin-top:14px;">Or:</p>`;
+          html += `<button class="btn btn-secondary" id="random-btn" style="margin-top:6px;">🎲 Random mix</button>`;
+        }
+        html += `</div>`;
+        submenu.innerHTML = html;
+
+        const pageChips = document.getElementById("page-chips");
+        pages.forEach((p) => {
+          const chip = document.createElement("div");
+          chip.className = "mode-chip";
+          chip.textContent = `Page ${p}`;
+          chip.onclick = () => startGame(words.filter((w) => w.page === p));
+          pageChips.appendChild(chip);
+        });
+
+        if (material === "wordbank") {
+          const topicChips = document.getElementById("topic-chips");
+          const topics = [...new Set(words.map((w) => w.topic))];
+          topics.forEach((t) => {
+            const chip = document.createElement("div");
+            chip.className = `mode-chip subject-${t === "mathematics" ? "math" : t}`;
+            chip.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+            chip.onclick = () => startGame(words.filter((w) => w.topic === t));
+            topicChips.appendChild(chip);
+          });
+          document.getElementById("random-btn").onclick = () =>
+            startGame(shuffleArray([...words]));
+        }
+      }
+
+      /* ---------------------------------------------------
+   DEEP LINK (dedicated video link → locked practice)
+--------------------------------------------------- */
+      function startFromDeepLink() {
+        const dl = state.deepLink;
+        let words = WORDS.filter((w) => w.material === dl.material);
+        if (dl.page) words = words.filter((w) => w.page === dl.page);
+        if (dl.topic) words = words.filter((w) => w.topic === dl.topic);
+        if (words.length === 0) {
+          showScreen("menu");
+          renderMenu();
+          return;
+        }
+        startGame(words);
+      }
+
+      /* ---------------------------------------------------
+   GAME LOOP
+--------------------------------------------------- */
+      const answerSlots = document.getElementById("answer-slots");
+      const tileTray = document.getElementById("tile-tray");
+      const feedback = document.getElementById("feedback");
+
+      let slotSortables = [];
+      let sortableTray;
+
+      function startGame(words) {
+        state.queue = shuffleArray([...words]);
+        state.index = 0;
+        showScreen("game");
+        renderWord();
+      }
+
+      function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
+
+      function shuffleLetters(word) {
+        const letters = word.split("");
+        let shuffled;
+        do {
+          shuffled = shuffleArray([...letters]);
+        } while (shuffled.join("") === word && letters.length > 1);
+        return shuffled;
+      }
+
+      function renderWord() {
+        feedback.textContent = "";
+        feedback.className = "";
+        state.attempts = 0;
+
+        const current = state.queue[state.index];
+        document.getElementById("clue-ipa").textContent = current.ipa;
+
+        answerSlots.innerHTML = "";
+        tileTray.innerHTML = "";
+
+        /*Every time a new word loads, this clears the old outline boxes and draws a fresh row. One box per letter in current.word. A 4-letter word gets 4 boxes, a 7-letter word gets 7.*/
+        const slotOutline = document.getElementById("slot-outline");
+        slotOutline.innerHTML = "";
+        for (let i = 0; i < current.word.length; i++) {
+          const box = document.createElement("div");
+          box.className = "slot-box";
+          slotOutline.appendChild(box);
+
+          const slot = document.createElement("div");
+          slot.className = "answer-slot";
+          answerSlots.appendChild(slot);
+        }
+
+        const jumbled = shuffleLetters(current.word);
+        jumbled.forEach((letter, i) => {
+          const tile = document.createElement("div");
+          tile.className = "tile";
+          tile.textContent = letter;
+          tile.dataset.letter = letter.toLowerCase();
+          tile.dataset.uid = `${current.id}-${i}`;
+          tileTray.appendChild(tile);
+        });
+
+        slotSortables.forEach((s) => s.destroy());
+        if (sortableTray) sortableTray.destroy();
+
+        slotSortables = [...answerSlots.querySelectorAll(".answer-slot")].map(
+          (slot) =>
+            new Sortable(slot, {
+              group: "tiles",
+              animation: 150,
+              onEnd: handleSlotSwap,
+            }),
+        );
+        sortableTray = new Sortable(tileTray, {
+          group: "tiles",
+          animation: 150,
+          onEnd: handleSlotSwap,
+        });
+
+        /* if a tile is dropped on a slot that already has one, bump the old occupant back to wherever the new tile came from. */
+        function handleSlotSwap(evt) {
+          const to = evt.to;
+          if (to.classList.contains("answer-slot") && to.children.length > 1) {
+            const bumped = [...to.children].find((el) => el !== evt.item);
+            if (bumped) evt.from.appendChild(bumped);
+          }
+        }
+
+        // sortableTray = new Sortable(tileTray, {
+        //   group: "tiles",
+        //   animation: 150,
+        // });
+      }
+
+      /* Click/tap a tile as an alternative to dragging it.
+   Tapping a tile in the tray moves it to the answer.
+   Tapping a tile in the answer sends it back to the tray. */
+      function handleTileTap(e) {
+        const tile = e.target.closest(".tile");
+        if (!tile) return;
+        if (tile.parentElement === tileTray) {
+          const emptySlot = answerSlots.querySelector(".answer-slot:empty");
+          if (emptySlot) emptySlot.appendChild(tile);
+        } else if (tile.parentElement.classList.contains("answer-slot")) {
+          tileTray.appendChild(tile);
+        }
+      }
+
+      tileTray.addEventListener("click", handleTileTap);
+      answerSlots.addEventListener("click", handleTileTap);
+
+      document.getElementById("btn-check").onclick = () => {
+        const current = state.queue[state.index];
+        const placed = [...answerSlots.querySelectorAll(".answer-slot")]
+          .map((slot) =>
+            slot.firstElementChild ? slot.firstElementChild.dataset.letter : "",
+          )
+          .join("");
+
+        state.attempts++;
+
+        if (placed === current.word.toLowerCase()) {
+          feedback.textContent =
+            state.attempts === 1
+              ? "🎉 Perfect on the first try!"
+              : "✅ Correct!";
+          feedback.className = "correct";
+          if (state.attempts === 1) {
+            state.score += 10;
+            state.streak += 1;
+          } else {
+            state.score += 5;
+            state.streak = 0;
+          }
+          saveProgress();
+          setTimeout(nextWord, 900);
+        } else {
+          feedback.textContent = "Not quite — try again!";
+          feedback.className = "wrong";
+          state.streak = 0;
+          saveProgress();
+        }
+      };
+
+      document.getElementById("btn-skip").onclick = () => {
+        state.streak = 0;
+        saveProgress();
+        nextWord();
+      };
+
+      document.getElementById("btn-exit").onclick = () => {
+        showScreen("menu");
+        renderMenu();
+      };
+
+      function nextWord() {
+        state.index++;
+        if (state.index >= state.queue.length) {
+          feedback.textContent =
+            "🏁 Set complete! Choose something else to practice.";
+          feedback.className = "correct";
+          setTimeout(() => {
+            showScreen("menu");
+            renderMenu();
+          }, 1400);
+          return;
+        }
+        renderWord();
+      }
+    </script>
+  </body>
+</html>
