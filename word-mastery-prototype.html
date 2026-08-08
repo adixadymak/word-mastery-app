@@ -379,6 +379,13 @@
         text-align: center;
         margin-top: 18px;
       }
+
+      #site-footer {
+        margin-top: 30px;
+        font-size: 0.8rem;
+        color: var(--chalk-dim);
+        text-align: center;
+      }
     </style>
   </head>
   <body>
@@ -449,6 +456,10 @@
         </div>
       </section>
     </main>
+
+    <footer id="site-footer">
+      © <span id="copyright-year"></span> HMC Academy. All rights reserved.
+    </footer>
 
     <script>
       /* ---------------------------------------------------
@@ -906,6 +917,9 @@
         }
         renderWord();
       }
+
+      document.getElementById("copyright-year").textContent =
+        new Date().getFullYear();
     </script>
   </body>
 </html>
