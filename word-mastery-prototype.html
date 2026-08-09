@@ -593,6 +593,7 @@
         score: 0,
         streak: 0,
         attempts: 0,
+        words: {}, //This will hold an entry per word ID. A record on how each specific word has gone for this child.
       };
 
       function parseDeepLink() {
@@ -665,18 +666,37 @@
       }
       function loadProgress() {
         const raw = localStorage.getItem(progressKey());
-        const data = raw ? JSON.parse(raw) : { score: 0, streak: 0 };
+        const data = raw ? JSON.parse(raw) : { score: 0, streak: 0, words: {} };
         state.score = data.score;
         state.streak = data.streak;
+        state.words = data.words || {}; //Protect from loading unsaved progress
         updateStatsBar();
       }
       function saveProgress() {
         localStorage.setItem(
           progressKey(),
-          JSON.stringify({ score: state.score, streak: state.streak }),
+          JSON.stringify({
+            score: state.score,
+            streak: state.streak,
+            words: state.words,
+          }),
         );
         updateStatsBar();
       }
+
+      function recordAttempt(wordId, wasWrong) {
+        if (!state.words[wordId])
+          state.words[wordId] = { attempts: 0, wrongAttempts: 0, skips: 0 };
+        state.words[wordId].attempts++;
+        if (wasWrong) state.words[wordId].wrongAttempts++;
+      }
+
+      function recordSkip(wordId) {
+        if (!state.words[wordId])
+          state.words[wordId] = { attempts: 0, wrongAttempts: 0, skips: 0 };
+        state.words[wordId].skips++;
+      }
+
       function updateStatsBar() {
         document.getElementById("stat-score").textContent = `⭐ ${state.score}`;
         document.getElementById("stat-streak").textContent =
@@ -939,6 +959,7 @@
           .join("");
 
         state.attempts++;
+        recordAttempt(current.id, placed !== current.word.toLowerCase());
 
         if (placed === current.word.toLowerCase()) {
           feedback.textContent =
@@ -964,6 +985,8 @@
       };
 
       document.getElementById("btn-skip").onclick = () => {
+        const current = state.queue[state.index];
+        recordSkip(current.id);
         state.streak = 0;
         saveProgress();
         nextWord();
