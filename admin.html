@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+    <script src="data.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        background: #1e2a3a;
+        color: #f4efe6;
+        padding: 20px;
+      }
+      h1 {
+        font-size: 1.4rem;
+      }
+      .child-card {
+        background: #26374a;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .child-card h3 {
+        margin: 0 0 10px;
+      }
+      .weak-word {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        background: #31445a;
+        padding: 8px 12px;
+        border-radius: 8px;
+        margin-bottom: 6px;
+        font-size: 0.9rem;
+      }
+      .weak-word .ipa {
+        color: #ffc94a;
+        margin-left: 6px;
+      }
+      .weak-word .stats {
+        color: #b9c3ce;
+        font-size: 0.8rem;
+      }
+      .weak-word button {
+        background: #ff6b5b;
+        border: none;
+        color: white;
+        padding: 6px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .none {
+        color: #b9c3ce;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>📊 Admin Dashboard</h1>
+    <div id="dashboard"></div>
+
+    <script>
+      function getChildProgress(name) {
+        const raw = localStorage.getItem(`wordmastery_${name}`);
+        return raw ? JSON.parse(raw) : { score: 0, streak: 0, words: {} };
+      }
+
+      function getWeakWords(progress) {
+        return Object.entries(progress.words || {})
+          .map(([id, stats]) => ({
+            id: Number(id),
+            ...stats,
+            trouble: stats.wrongAttempts + stats.skips,
+          }))
+          .filter((w) => w.trouble > 0)
+          .sort((a, b) => b.trouble - a.trouble);
+      }
+
+      function findWord(id) {
+        return WORDS.find((w) => w.id === id);
+      }
+
+      function flagWord(name, wordId) {
+        const key = `flagged_${name}`;
+        const flags = JSON.parse(localStorage.getItem(key) || "[]");
+        if (!flags.includes(wordId)) flags.push(wordId);
+        localStorage.setItem(key, JSON.stringify(flags));
+        alert("Flagged for practice.");
+      }
+
+      function renderDashboard() {
+        const container = document.getElementById("dashboard");
+        container.innerHTML = ROSTER.map((child) => {
+          const progress = getChildProgress(child.name);
+          const weak = getWeakWords(progress);
+          const weakHtml = weak.length
+            ? weak
+                .map((w) => {
+                  const word = findWord(w.id);
+                  if (!word) return "";
+                  return `<div class="weak-word">
+                    <span>${word.word} <span class="ipa">${word.ipa}</span></span>
+                    <span class="stats">${w.wrongAttempts} wrong, ${w.skips} skipped</span>
+                    <button onclick="flagWord('${child.name}', ${w.id})">🚩 Flag</button>
+                  </div>`;
+                })
+                .join("")
+            : `<p class="none">No trouble words yet.</p>`;
+          return `<div class="child-card">
+              <h3>${child.name} — ${progress.score} pts</h3>
+              ${weakHtml}
+            </div>`;
+        }).join("");
+      }
+
+      renderDashboard();
+    </script>
+  </body>
+</html>
