@@ -15,6 +15,58 @@
       h1 {
         font-size: 1.4rem;
       }
+
+      .card {
+        background: #26374a;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .hint {
+        color: #b9c3ce;
+        font-size: 0.85rem;
+      }
+      textarea {
+        width: 100%;
+        background: #31445a;
+        color: #f4efe6;
+        border: none;
+        border-radius: 8px;
+        padding: 10px;
+        font-family: monospace;
+      }
+      #add-words-btn {
+        background: #4ecdc4;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 8px;
+        font-weight: bold;
+      }
+      #add-words-feedback {
+        margin-top: 8px;
+        color: #4fb286;
+        font-size: 0.9rem;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 8px;
+        border-bottom: 1px solid #31445a;
+      }
+      .clickable-row {
+        cursor: pointer;
+      }
+      .clickable-row:hover {
+        background: #31445a;
+      }
       .child-card {
         background: #26374a;
         border-radius: 14px;
@@ -59,7 +111,37 @@
   </head>
   <body>
     <h1>📊 Admin Dashboard</h1>
-    <div id="dashboard"></div>
+    <div class="card">
+      <h3>➕ Add Words</h3>
+      <p class="hint">
+        One word per line: <code>word, ipa, material, page, topic</code> (topic
+        only needed for wordbank)
+      </p>
+      <textarea
+        id="bulk-words-input"
+        rows="6"
+        placeholder="cat, /kæt/, part1, 1
+add, /æd/, wordbank, 1, mathematics"
+      ></textarea>
+      <button id="add-words-btn">Add Words</button>
+      <div id="add-words-feedback"></div>
+    </div>
+    <div class="card">
+      <h3>🏆 Children Performance</h3>
+      <table id="leaderboard-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Name</th>
+            <th>Score</th>
+            <th>Trouble Words</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body"></tbody>
+      </table>
+    </div>
+    <div id="child-details"></div>
 
     <script>
       function getChildProgress(name) {
@@ -78,10 +160,12 @@
           .sort((a, b) => b.trouble - a.trouble);
       }
 
+      // function findWord(id) {
+      //   return WORDS.find((w) => w.id === id);
+      // }
       function findWord(id) {
-        return WORDS.find((w) => w.id === id);
+        return getAllWords().find((w) => w.id === id);
       }
-
       function flagWord(name, wordId) {
         const key = `flagged_${name}`;
         const flags = JSON.parse(localStorage.getItem(key) || "[]");
@@ -90,30 +174,106 @@
         alert("Flagged for practice.");
       }
 
+      /* function renderDashboard() {
+              const container = document.getElementById("dashboard");
+              container.innerHTML = ROSTER.map((child) => {
+                const progress = getChildProgress(child.name);
+                const weak = getWeakWords(progress);
+                const weakHtml = weak.length
+                  ? weak
+                      .map((w) => {
+                        const word = findWord(w.id);
+                        if (!word) return "";
+                        return `<div class="weak-word">
+                          <span>${word.word} <span class="ipa">${word.ipa}</span></span>
+                          <span class="stats">${w.wrongAttempts} wrong, ${w.skips} skipped</span>
+                          <button onclick="flagWord('${child.name}', ${w.id})">🚩 Flag</button>
+                        </div>`;
+                      })
+                      .join("")
+                  : `<p class="none">No trouble words yet.</p>`;
+                return `<div class="child-card">
+                    <h3>${child.name} — ${progress.score} pts</h3>
+                    ${weakHtml}
+                  </div>`;
+              }).join("");
+            }*/
+
       function renderDashboard() {
-        const container = document.getElementById("dashboard");
-        container.innerHTML = ROSTER.map((child) => {
+        const rows = ROSTER.map((child) => {
           const progress = getChildProgress(child.name);
           const weak = getWeakWords(progress);
-          const weakHtml = weak.length
-            ? weak
-                .map((w) => {
-                  const word = findWord(w.id);
-                  if (!word) return "";
-                  return `<div class="weak-word">
-                    <span>${word.word} <span class="ipa">${word.ipa}</span></span>
-                    <span class="stats">${w.wrongAttempts} wrong, ${w.skips} skipped</span>
-                    <button onclick="flagWord('${child.name}', ${w.id})">🚩 Flag</button>
-                  </div>`;
-                })
-                .join("")
-            : `<p class="none">No trouble words yet.</p>`;
-          return `<div class="child-card">
-              <h3>${child.name} — ${progress.score} pts</h3>
-              ${weakHtml}
-            </div>`;
-        }).join("");
+          return {
+            name: child.name,
+            score: progress.score,
+            weakCount: weak.length,
+          };
+        }).sort((a, b) => b.score - a.score);
+
+        document.getElementById("leaderboard-body").innerHTML = rows
+          .map(
+            (r, i) => `
+          <tr class="clickable-row" onclick="toggleDetails('${r.name}')">
+            <td>${i + 1}</td><td>${r.name}</td><td>${r.score}</td><td>${r.weakCount}</td><td>▾</td>
+          </tr>
+        `,
+          )
+          .join("");
       }
+
+      function toggleDetails(name) {
+        const container = document.getElementById("child-details");
+        if (container.dataset.current === name) {
+          container.innerHTML = "";
+          container.dataset.current = "";
+          return;
+        }
+        container.dataset.current = name;
+        const progress = getChildProgress(name);
+        const weak = getWeakWords(progress);
+        const weakHtml = weak.length
+          ? weak
+              .map((w) => {
+                const word = findWord(w.id);
+                if (!word) return "";
+                return `<div class="weak-word">
+                        <span>${word.word} <span class="ipa">${word.ipa}</span></span>
+                        <span class="stats">${w.wrongAttempts} wrong, ${w.skips} skipped</span>
+                        <button onclick="flagWord('${name}', ${w.id})">🚩 Flag</button>
+                      </div>`;
+              })
+              .join("")
+          : `<p class="none">No trouble words yet.</p>`;
+        container.innerHTML = `<div class="child-card"><h3>${name}'s trouble words</h3>${weakHtml}</div>`;
+      }
+
+      function handleBulkAdd() {
+        const raw = document.getElementById("bulk-words-input").value.trim();
+        if (!raw) return;
+        const lines = raw
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+        let added = 0;
+        lines.forEach((line) => {
+          const parts = line.split(",").map((p) => p.trim());
+          const [word, ipa, material, page, topic] = parts;
+          if (!word || !ipa || !material || !page) return;
+          addCustomWord({
+            word,
+            ipa,
+            material,
+            page: Number(page),
+            topic: topic || undefined,
+          });
+          added++;
+        });
+        document.getElementById("add-words-feedback").textContent =
+          `Added ${added} word(s).`;
+        document.getElementById("bulk-words-input").value = "";
+        renderDashboard();
+      }
+      document.getElementById("add-words-btn").onclick = handleBulkAdd;
 
       renderDashboard();
     </script>

@@ -688,7 +688,7 @@
       }
 
       function renderSubmenu(material) {
-        const words = WORDS.filter((w) => w.material === material);
+       const words = getAllWords().filter(w => w.material === material);
         const pages = [...new Set(words.map((w) => w.page))].sort(
           (a, b) => a - b,
         );
@@ -736,7 +736,7 @@
 --------------------------------------------------- */
       function startFromDeepLink() {
         const dl = state.deepLink;
-        let words = WORDS.filter((w) => w.material === dl.material);
+        let words = getAllWords().filter(w => w.material === dl.material);
         if (dl.page) words = words.filter((w) => w.page === dl.page);
         if (dl.topic) words = words.filter((w) => w.topic === dl.topic);
         if (words.length === 0) {

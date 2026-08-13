@@ -85,3 +85,22 @@
           cls: "wordbank",
         },
       };
+
+function getCustomWords(){
+  return JSON.parse(localStorage.getItem("customWords") || "[]");
+}
+
+function saveCustomWords(words){
+  localStorage.setItem("customWords", JSON.stringify(words));
+}
+
+function getAllWords(){
+  return [...WORDS, ...getCustomWords()];
+}
+
+function addCustomWord(wordObj){
+  const custom = getCustomWords();
+  wordObj.id = 1000 + custom.length;
+  custom.push(wordObj);
+  saveCustomWords(custom);
+}
