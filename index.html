@@ -422,7 +422,14 @@
         <span class="dot"></span><span>Word Mastery</span>
       </div>
       <div id="stats">
-        <span id="stat-score">⭐ 0</span><span id="stat-streak">🔥 0</span>
+        <span id="stat-score">⭐ 0</span><span id="stat-streak">🔥 0</span
+        ><button
+          id="btn-logout"
+          class="btn btn-ghost"
+          style="padding: 4px 10px; font-size: 0.8rem"
+        >
+          Logout
+        </button>
       </div>
     </div>
 
@@ -495,7 +502,6 @@
     </footer>
 
     <script>
-     
       /* ---------------------------------------------------
    STATE
 --------------------------------------------------- */
@@ -559,6 +565,7 @@
         const record = ROSTER.find((r) => r.name === pendingName);
         if (record && record.pin === pinInput.value) {
           state.child = record.name;
+          localStorage.setItem("currentChild", state.child);
           document.getElementById("stats").style.display = "flex";
           loadProgress();
           if (state.deepLink) {
@@ -688,7 +695,7 @@
       }
 
       function renderSubmenu(material) {
-       const words = getAllWords().filter(w => w.material === material);
+        const words = getAllWords().filter((w) => w.material === material);
         const pages = [...new Set(words.map((w) => w.page))].sort(
           (a, b) => a - b,
         );
@@ -736,7 +743,7 @@
 --------------------------------------------------- */
       function startFromDeepLink() {
         const dl = state.deepLink;
-        let words = getAllWords().filter(w => w.material === dl.material);
+        let words = getAllWords().filter((w) => w.material === dl.material);
         if (dl.page) words = words.filter((w) => w.page === dl.page);
         if (dl.topic) words = words.filter((w) => w.topic === dl.topic);
         if (words.length === 0) {
@@ -926,8 +933,38 @@
         renderWord();
       }
 
+      // script for logout persistence
+      function logout() {
+        localStorage.removeItem("currentChild");
+        state.child = null;
+        document.getElementById("stats").style.display = "none";
+        pinArea.style.display = "none";
+        document
+          .querySelectorAll(".name-chip")
+          .forEach((c) => c.classList.remove("selected"));
+        showScreen("login");
+      }
+      document.getElementById("btn-logout").onclick = logout;
+
+      // this is the year generated code for the footer.
       document.getElementById("copyright-year").textContent =
         new Date().getFullYear();
+
+      function tryAutoLogin() {
+        const saved = localStorage.getItem("currentChild");
+        if (saved && ROSTER.some((r) => r.name === saved)) {
+          state.child = saved;
+          document.getElementById("stats").style.display = "flex";
+          loadProgress();
+          if (state.deepLink) {
+            startFromDeepLink();
+          } else {
+            showScreen("menu");
+            renderMenu();
+          }
+        }
+      }
+      tryAutoLogin();
     </script>
   </body>
 </html>
