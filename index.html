@@ -158,6 +158,18 @@
       }
 
       /* Login */
+      #name-search {
+        width: 100%;
+        padding: 12px;
+        border-radius: 12px;
+        border: none;
+        background: var(--bg-panel-light);
+        color: var(--chalk);
+        font-family: "Atkinson Hyperlegible", sans-serif;
+        font-size: 1rem;
+        margin-top: 14px;
+      }
+
       #roster-grid {
         display: flex;
         flex-wrap: wrap;
@@ -441,6 +453,7 @@
           <p class="subtitle">
             Pick your name from the list, then enter your PIN.
           </p>
+          <input id="name-search" type="text" placeholder="Type your name..." />
           <div id="roster-grid"></div>
           <div id="pin-area">
             <p class="subtitle" id="pin-prompt"></p>
@@ -555,6 +568,48 @@
         };
         rosterGrid.appendChild(chip);
       });
+
+      // The search name function
+      function createNameChip(name) {
+        const chip = document.createElement("div");
+        chip.className = "name-chip";
+        chip.textContent = name;
+        chip.onclick = () => {
+          document
+            .querySelectorAll(".name-chip")
+            .forEach((c) => c.classList.remove("selected"));
+          chip.classList.add("selected");
+          pendingName = name;
+          pinPrompt.textContent = `Enter ${name}'s PIN`;
+          pinArea.style.display = "block";
+          pinInput.value = "";
+          loginError.textContent = "";
+          pinInput.focus();
+        };
+        return chip;
+      }
+
+      function renderNameResults(query) {
+        rosterGrid.innerHTML = "";
+        if (!query) {
+          rosterGrid.innerHTML = `<p class="subtitle">Start typing your name above...</p>`;
+          return;
+        }
+        const matches = ROSTER.filter((r) =>
+          r.name.toLowerCase().includes(query.toLowerCase()),
+        ).slice(0, 8);
+        if (matches.length === 0) {
+          rosterGrid.innerHTML = `<p class="subtitle">No matches — check your spelling.</p>`;
+          return;
+        }
+        matches.forEach((r) => rosterGrid.appendChild(createNameChip(r.name)));
+      }
+
+      document.getElementById("name-search").addEventListener("input", (e) => {
+        renderNameResults(e.target.value.trim());
+      });
+
+      renderNameResults("");
 
       document.getElementById("pin-submit").onclick = attemptLogin;
       pinInput.addEventListener("keydown", (e) => {
