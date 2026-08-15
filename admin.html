@@ -107,6 +107,13 @@
         color: #b9c3ce;
         font-size: 0.9rem;
       }
+
+      .unlock-row {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 12px;
+        font-size: 0.9rem;
+      }
     </style>
   </head>
   <body>
@@ -174,31 +181,6 @@ add, /æd/, wordbank, 1, mathematics"
         alert("Flagged for practice.");
       }
 
-      /* function renderDashboard() {
-              const container = document.getElementById("dashboard");
-              container.innerHTML = ROSTER.map((child) => {
-                const progress = getChildProgress(child.name);
-                const weak = getWeakWords(progress);
-                const weakHtml = weak.length
-                  ? weak
-                      .map((w) => {
-                        const word = findWord(w.id);
-                        if (!word) return "";
-                        return `<div class="weak-word">
-                          <span>${word.word} <span class="ipa">${word.ipa}</span></span>
-                          <span class="stats">${w.wrongAttempts} wrong, ${w.skips} skipped</span>
-                          <button onclick="flagWord('${child.name}', ${w.id})">🚩 Flag</button>
-                        </div>`;
-                      })
-                      .join("")
-                  : `<p class="none">No trouble words yet.</p>`;
-                return `<div class="child-card">
-                    <h3>${child.name} — ${progress.score} pts</h3>
-                    ${weakHtml}
-                  </div>`;
-              }).join("");
-            }*/
-
       function renderDashboard() {
         const rows = ROSTER.map((child) => {
           const progress = getChildProgress(child.name);
@@ -244,7 +226,15 @@ add, /æd/, wordbank, 1, mathematics"
               })
               .join("")
           : `<p class="none">No trouble words yet.</p>`;
-        container.innerHTML = `<div class="child-card"><h3>${name}'s trouble words</h3>${weakHtml}</div>`;
+        const unlocked = getUnlockStatus(name);
+        container.innerHTML = `<div class="child-card">
+      <h3>${name}'s trouble words</h3>
+      <div class="unlock-row">
+        <label><input type="checkbox" ${unlocked.part2 ? "checked" : ""} onchange="handleUnlockToggle('${name}','part2',this.checked)"> Part 2 unlocked</label>
+        <label><input type="checkbox" ${unlocked.wordbank ? "checked" : ""} onchange="handleUnlockToggle('${name}','wordbank',this.checked)"> Word Bank unlocked</label>
+      </div>
+      ${weakHtml}
+    </div>`;
       }
 
       function handleBulkAdd() {
@@ -274,6 +264,10 @@ add, /æd/, wordbank, 1, mathematics"
         renderDashboard();
       }
       document.getElementById("add-words-btn").onclick = handleBulkAdd;
+
+      function handleUnlockToggle(name, material, checked) {
+        setUnlockStatus(name, material, checked);
+      }
 
       renderDashboard();
     </script>

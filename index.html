@@ -420,6 +420,10 @@
         margin-top: 18px;
       }
 
+      .material-card.locked {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
       #site-footer {
         margin-top: 30px;
         font-size: 0.8rem;
@@ -482,6 +486,13 @@
         <div class="card">
           <h2 id="menu-greeting">What do you want to practice?</h2>
           <div class="material-row" id="material-row"></div>
+          <button
+            class="btn btn-secondary"
+            id="random-everything-btn"
+            style="width: 100%; margin-top: 12px"
+          >
+            🎲 Random Mix — Everything
+          </button>
           <div id="submenu"></div>
         </div>
       </section>
@@ -640,14 +651,24 @@
       function progressKey() {
         return `wordmastery_${state.child}`;
       }
+
       function loadProgress() {
         const raw = localStorage.getItem(progressKey());
-        const data = raw ? JSON.parse(raw) : { score: 0, streak: 0, words: {} };
+        const data = raw
+          ? JSON.parse(raw)
+          : {
+              score: 0,
+              streak: 0,
+              words: {},
+              unlocked: { part2: false, wordbank: false },
+            };
         state.score = data.score;
         state.streak = data.streak;
-        state.words = data.words || {}; //Protect from loading unsaved progress
+        state.words = data.words || {};
+        state.unlocked = data.unlocked || { part2: false, wordbank: false };
         updateStatsBar();
       }
+
       function saveProgress() {
         localStorage.setItem(
           progressKey(),
@@ -655,6 +676,7 @@
             score: state.score,
             streak: state.streak,
             words: state.words,
+            unlocked: state.unlocked,
           }),
         );
         updateStatsBar();
@@ -703,10 +725,13 @@
         submenu.innerHTML = "";
         Object.keys(MATERIAL_LABELS).forEach((matKey) => {
           const info = MATERIAL_LABELS[matKey];
+          const isLocked = matKey !== "part1" && !state.unlocked[matKey];
           const card = document.createElement("div");
-          card.className = `material-card ${info.cls}`;
-          card.innerHTML = `<div><h3>${info.title}</h3><div class="subtitle">${info.subtitle}</div></div><div>▶</div>`;
-          card.onclick = () => renderSubmenu(matKey);
+          card.className = `material-card ${info.cls}${isLocked ? " locked" : ""}`;
+          card.innerHTML = `<div><h3>${info.title}</h3><div class="subtitle">${isLocked ? "🔒 Not unlocked yet" : info.subtitle}</div></div><div>${isLocked ? "🔒" : "▶"}</div>`;
+          card.onclick = () => {
+            if (!isLocked) renderSubmenu(matKey);
+          };
           materialRow.appendChild(card);
         });
       }
@@ -760,12 +785,12 @@
         html += `<div class="chip-row" id="page-chips"></div>`;
 
         if (material === "wordbank") {
-          const topics = [...new Set(words.map((w) => w.topic))];
           html += `<p class="subtitle" style="margin-top:14px;">Or by subject:</p>`;
           html += `<div class="chip-row" id="topic-chips"></div>`;
-          html += `<p class="subtitle" style="margin-top:14px;">Or:</p>`;
-          html += `<button class="btn btn-secondary" id="random-btn" style="margin-top:6px;">🎲 Random mix</button>`;
         }
+
+        html += `<p class="subtitle" style="margin-top:14px;">Or:</p>`;
+        html += `<button class="btn btn-secondary" id="random-btn" style="margin-top:6px;">🎲 Random mix</button>`;
         html += `</div>`;
         submenu.innerHTML = html;
 
@@ -788,10 +813,15 @@
             chip.onclick = () => startGame(words.filter((w) => w.topic === t));
             topicChips.appendChild(chip);
           });
-          document.getElementById("random-btn").onclick = () =>
-            startGame(shuffleArray([...words]));
         }
+
+        document.getElementById("random-btn").onclick = () =>
+          startGame(shuffleArray([...words]));
       }
+
+      // Script for random-everything-btn
+      document.getElementById("random-everything-btn").onclick = () =>
+        startGame(shuffleArray(getAllWords()));
 
       /* ---------------------------------------------------
    DEEP LINK (dedicated video link → locked practice)
