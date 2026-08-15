@@ -13,14 +13,12 @@ function setUnlockStatus(name, material, value) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
-/* ---------------------------------------------------
-   DUMMY DATA — replace with real word bank JSON later
---------------------------------------------------- */
 const ROSTER = [
-  { name: "Aisha", pin: "1111" },
-  { name: "Mateo", pin: "2222" },
-  { name: "Zara", pin: "3333" },
-  { name: "Kofi", pin: "4444" },
+  { name: "Emmanuel Ifeanyichukwu", pin: "1024" },
+  { name: "Oluoti Mahmud", pin: "3391" },
+  { name: "Chantel Christian", pin: "5820" },
+  { name: "Charissa Christian", pin: "7146" },
+  { name: "Chimdalu Emmanuel", pin: "9053" },
 ];
 
 const WORDS = [
