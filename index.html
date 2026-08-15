@@ -499,6 +499,30 @@
         opacity: 0.5;
         cursor: not-allowed;
       }
+
+      #clue-ipa-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      }
+      #btn-pronounce {
+        background: var(--teal);
+        border: none;
+        border-radius: 50%;
+        width: 38px;
+        height: 38px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      #btn-pronounce:active {
+        transform: scale(0.9);
+      }
+
       #site-footer {
         margin-top: 30px;
         font-size: 0.8rem;
@@ -575,7 +599,10 @@
       <!-- GAME -->
       <section id="screen-game" class="screen">
         <div id="clue-placard">
-          <div id="clue-ipa">/ /</div>
+          <div id="clue-ipa-row">
+            <div id="clue-ipa">/ /</div>
+            <button id="btn-pronounce" title="Hear pronunciation">🔊</button>
+          </div>
         </div>
 
         <div id="answer-wrap">
@@ -997,7 +1024,8 @@
 
         const current = state.queue[state.index];
         document.getElementById("clue-ipa").textContent = current.ipa;
-
+        document.getElementById("btn-pronounce").onclick = () =>
+          speakWord(current.word);
         answerSlots.innerHTML = "";
         tileTray.innerHTML = "";
 
@@ -1219,6 +1247,16 @@
         };
 
         refresh();
+      }
+
+      function speakWord(word) {
+        if (!("speechSynthesis" in window)) {
+          alert("Sorry, this browser doesn't support audio pronunciation.");
+          return;
+        }
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = "en-GB";
+        speechSynthesis.speak(utterance);
       }
 
       // this is the year generated code for the footer.
