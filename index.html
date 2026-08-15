@@ -337,7 +337,8 @@
         justify-content: center;
         background: rgba(255, 255, 255, 0.02);
       }
-      #answer-wrap {
+
+      /* #answer-wrap {
         position: relative;
         margin-bottom: 18px;
         min-height: 64px;
@@ -358,7 +359,34 @@
       }
       #answer-slots {
         z-index: 1;
+      } */
+
+      #answer-wrap {
+        position: relative;
+        margin-bottom: 18px;
       }
+      #slot-outline {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 10px;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 0;
+      }
+      #answer-slots {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 10px;
+        justify-content: center;
+        min-height: 64px;
+        z-index: 1;
+      }
+
       .slot-box {
         width: 52px;
         height: 52px;
