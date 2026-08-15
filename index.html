@@ -420,6 +420,51 @@
         margin-top: 18px;
       }
 
+      .stepper-group {
+        display: flex;
+        gap: 14px;
+        justify-content: center;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+      .stepper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .stepper-value {
+        background: var(--bg-panel-light);
+        border-radius: 10px;
+        padding: 10px 16px;
+        text-align: center;
+        min-width: 70px;
+      }
+      .stepper-label {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--chalk-dim);
+      }
+      .stepper-value span:last-child {
+        font-family: "Baloo 2", sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+      }
+      .stepper-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: none;
+        background: var(--teal);
+        color: var(--bg-deep);
+        font-size: 1.2rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .stepper-btn:active {
+        transform: scale(0.9);
+      }
+
       .material-card.locked {
         opacity: 0.5;
         cursor: not-allowed;
@@ -779,22 +824,41 @@
       /*
       clicking a material now hides the other two cards and the random-everything button entirely, replacing the view with just that material's options plus a Back button. No more ambiguity about which section the chips belong to.
       */
+
       function renderSubmenu(material) {
         materialRow.style.display = "none";
         document.getElementById("random-everything-btn").style.display = "none";
 
         const words = getAllWords().filter((w) => w.material === material);
-        const pages = [...new Set(words.map((w) => w.page))].sort(
-          (a, b) => a - b,
-        );
 
         let html = `<div class="card"><h3>${MATERIAL_LABELS[material].title}</h3>`;
         html += `<p class="subtitle">Choose how to practice:</p>`;
-        html += `<div class="chip-row" id="page-chips"></div>`;
 
         if (material === "wordbank") {
+          html += `<div class="chip-row" id="page-chips"></div>`;
           html += `<p class="subtitle" style="margin-top:14px;">Or by subject:</p>`;
           html += `<div class="chip-row" id="topic-chips"></div>`;
+        } else {
+          html += `
+      <div class="stepper-group">
+        <div class="stepper">
+          <button class="stepper-btn" id="module-prev">−</button>
+          <div class="stepper-value"><span class="stepper-label">Module</span><span id="module-display">1</span></div>
+          <button class="stepper-btn" id="module-next">+</button>
+        </div>
+        <div class="stepper">
+          <button class="stepper-btn" id="unit-prev">−</button>
+          <div class="stepper-value"><span class="stepper-label">Unit</span><span id="unit-display">1</span></div>
+          <button class="stepper-btn" id="unit-next">+</button>
+        </div>
+        <div class="stepper">
+          <button class="stepper-btn" id="lesson-prev">−</button>
+          <div class="stepper-value"><span class="stepper-label">Lesson</span><span id="lesson-display">1</span></div>
+          <button class="stepper-btn" id="lesson-next">+</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="lesson-start-btn" style="margin-top:14px;width:100%;">▶ Start Practicing</button>
+    `;
         }
 
         html += `<p class="subtitle" style="margin-top:14px;">Or:</p>`;
@@ -803,16 +867,19 @@
         html += `</div>`;
         submenu.innerHTML = html;
 
-        const pageChips = document.getElementById("page-chips");
-        pages.forEach((p) => {
-          const chip = document.createElement("div");
-          chip.className = "mode-chip";
-          chip.textContent = `Page ${p}`;
-          chip.onclick = () => startGame(words.filter((w) => w.page === p));
-          pageChips.appendChild(chip);
-        });
-
         if (material === "wordbank") {
+          const pages = [...new Set(words.map((w) => w.page))].sort(
+            (a, b) => a - b,
+          );
+          const pageChips = document.getElementById("page-chips");
+          pages.forEach((p) => {
+            const chip = document.createElement("div");
+            chip.className = "mode-chip";
+            chip.textContent = `Page ${p}`;
+            chip.onclick = () => startGame(words.filter((w) => w.page === p));
+            pageChips.appendChild(chip);
+          });
+
           const topicChips = document.getElementById("topic-chips");
           const topics = [...new Set(words.map((w) => w.topic))];
           topics.forEach((t) => {
@@ -822,6 +889,8 @@
             chip.onclick = () => startGame(words.filter((w) => w.topic === t));
             topicChips.appendChild(chip);
           });
+        } else {
+          buildLessonPicker(words);
         }
 
         document.getElementById("random-btn").onclick = () =>
@@ -1048,6 +1117,79 @@
         showScreen("login");
       }
       document.getElementById("btn-logout").onclick = logout;
+
+      // Add the picker logic
+      function buildLessonPicker(words) {
+        const modules = [...new Set(words.map((w) => w.module))].sort(
+          (a, b) => a - b,
+        );
+        let mIdx = 0;
+
+        const unitsFor = (mod) =>
+          [
+            ...new Set(
+              words.filter((w) => w.module === mod).map((w) => w.unit),
+            ),
+          ].sort((a, b) => a - b);
+        const lessonsFor = (mod, unit) =>
+          [
+            ...new Set(
+              words
+                .filter((w) => w.module === mod && w.unit === unit)
+                .map((w) => w.lesson),
+            ),
+          ].sort((a, b) => a - b);
+
+        let units = unitsFor(modules[mIdx]);
+        let uIdx = 0;
+        let lessons = lessonsFor(modules[mIdx], units[uIdx]);
+        let lIdx = 0;
+
+        function refresh() {
+          document.getElementById("module-display").textContent = modules[mIdx];
+          document.getElementById("unit-display").textContent = units[uIdx];
+          document.getElementById("lesson-display").textContent = lessons[lIdx];
+        }
+
+        function changeModule(dir) {
+          mIdx = Math.max(0, Math.min(modules.length - 1, mIdx + dir));
+          units = unitsFor(modules[mIdx]);
+          uIdx = 0;
+          lessons = lessonsFor(modules[mIdx], units[uIdx]);
+          lIdx = 0;
+          refresh();
+        }
+        function changeUnit(dir) {
+          uIdx = Math.max(0, Math.min(units.length - 1, uIdx + dir));
+          lessons = lessonsFor(modules[mIdx], units[uIdx]);
+          lIdx = 0;
+          refresh();
+        }
+        function changeLesson(dir) {
+          lIdx = Math.max(0, Math.min(lessons.length - 1, lIdx + dir));
+          refresh();
+        }
+
+        document.getElementById("module-prev").onclick = () => changeModule(-1);
+        document.getElementById("module-next").onclick = () => changeModule(1);
+        document.getElementById("unit-prev").onclick = () => changeUnit(-1);
+        document.getElementById("unit-next").onclick = () => changeUnit(1);
+        document.getElementById("lesson-prev").onclick = () => changeLesson(-1);
+        document.getElementById("lesson-next").onclick = () => changeLesson(1);
+
+        document.getElementById("lesson-start-btn").onclick = () => {
+          startGame(
+            words.filter(
+              (w) =>
+                w.module === modules[mIdx] &&
+                w.unit === units[uIdx] &&
+                w.lesson === lessons[lIdx],
+            ),
+          );
+        };
+
+        refresh();
+      }
 
       // this is the year generated code for the footer.
       document.getElementById("copyright-year").textContent =
