@@ -834,8 +834,12 @@
       }
 
       // Script for random-everything-btn
-      document.getElementById("random-everything-btn").onclick = () =>
-        startGame(shuffleArray(getAllWords()));
+      document.getElementById("random-everything-btn").onclick = () => {
+        const unlockedWords = getAllWords().filter(
+          (w) => w.material === "part1" || state.unlocked[w.material],
+        );
+        startGame(shuffleArray(unlockedWords));
+      };
 
       /* ---------------------------------------------------
    DEEP LINK (dedicated video link → locked practice)
