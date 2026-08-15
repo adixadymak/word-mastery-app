@@ -718,6 +718,8 @@
       const submenu = document.getElementById("submenu");
 
       function renderMenu() {
+        materialRow.style.display = "";
+        document.getElementById("random-everything-btn").style.display = "";
         document.getElementById("menu-greeting").textContent =
           `Hi ${state.child}! What do you want to practice?`;
         renderLeaderboard();
@@ -774,7 +776,13 @@
             : "";
       }
 
+      /*
+      clicking a material now hides the other two cards and the random-everything button entirely, replacing the view with just that material's options plus a Back button. No more ambiguity about which section the chips belong to.
+      */
       function renderSubmenu(material) {
+        materialRow.style.display = "none";
+        document.getElementById("random-everything-btn").style.display = "none";
+
         const words = getAllWords().filter((w) => w.material === material);
         const pages = [...new Set(words.map((w) => w.page))].sort(
           (a, b) => a - b,
@@ -791,6 +799,7 @@
 
         html += `<p class="subtitle" style="margin-top:14px;">Or:</p>`;
         html += `<button class="btn btn-secondary" id="random-btn" style="margin-top:6px;">🎲 Random mix</button>`;
+        html += `<div style="margin-top:16px;"><button class="btn btn-ghost" id="submenu-back-btn">← Back</button></div>`;
         html += `</div>`;
         submenu.innerHTML = html;
 
@@ -817,6 +826,11 @@
 
         document.getElementById("random-btn").onclick = () =>
           startGame(shuffleArray([...words]));
+        document.getElementById("submenu-back-btn").onclick = () => {
+          materialRow.style.display = "";
+          document.getElementById("random-everything-btn").style.display = "";
+          submenu.innerHTML = "";
+        };
       }
 
       // Script for random-everything-btn
