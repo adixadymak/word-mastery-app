@@ -450,6 +450,20 @@
         margin-top: 18px;
       }
 
+      #timer-display {
+        text-align: center;
+        font-family: "Baloo 2", sans-serif;
+        font-size: 1.1rem;
+        color: var(--chalk-dim);
+        margin-bottom: 8px;
+      }
+      #timer-display.warning {
+        color: var(--gold);
+      }
+      #timer-display.expired {
+        color: var(--coral);
+      }
+
       .stepper-group {
         display: flex;
         gap: 14px;
@@ -523,6 +537,33 @@
         transform: scale(0.9);
       }
 
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        padding: 20px;
+      }
+      .modal-overlay.active {
+        display: flex;
+      }
+      .modal-box {
+        background: var(--bg-panel);
+        border-radius: 18px;
+        padding: 24px;
+        max-width: 400px;
+        text-align: center;
+      }
+      .modal-box p {
+        font-family: "Baloo 2", sans-serif;
+        font-size: 1.1rem;
+        margin: 0 0 18px;
+        line-height: 1.4;
+      }
+
       #site-footer {
         margin-top: 30px;
         font-size: 0.8rem;
@@ -592,12 +633,20 @@
           >
             🎲 Random Mix — Everything
           </button>
+          <button
+            class="btn btn-secondary"
+            id="practice-missed-btn"
+            style="width: 100%; margin-top: 10px; display: none"
+          >
+            🔁 Practice Missed Words
+          </button>
           <div id="submenu"></div>
         </div>
       </section>
 
       <!-- GAME -->
       <section id="screen-game" class="screen">
+        <div id="timer-display">⏱ <span id="timer-value">--</span>s</div>
         <div id="clue-placard">
           <div id="clue-ipa-row">
             <div id="clue-ipa">/ /</div>
@@ -623,6 +672,13 @@
       </section>
     </main>
 
+    <div id="modal-overlay" class="modal-overlay">
+      <div class="modal-box">
+        <p id="modal-message"></p>
+        <button class="btn btn-primary" id="modal-btn"></button>
+      </div>
+    </div>
+
     <footer id="site-footer">
       © <span id="copyright-year"></span> HMC Academy. All rights reserved.
     </footer>
@@ -639,7 +695,10 @@
         score: 0,
         streak: 0,
         attempts: 0,
-        words: {}, //This will hold an entry per word ID. A record on how each specific word has gone for this child.
+        words: {},
+        recycled: new Set(),
+        resurfaceIds: new Set(),
+        practiceMode: false,
       };
 
       function parseDeepLink() {
@@ -784,17 +843,32 @@
         updateStatsBar();
       }
 
+      // to reset "cleared" status
       function recordAttempt(wordId, wasWrong) {
         if (!state.words[wordId])
           state.words[wordId] = { attempts: 0, wrongAttempts: 0, skips: 0 };
         state.words[wordId].attempts++;
-        if (wasWrong) state.words[wordId].wrongAttempts++;
+        if (wasWrong) {
+          state.words[wordId].wrongAttempts++;
+          state.words[wordId].cleared = false;
+        }
       }
 
       function recordSkip(wordId) {
         if (!state.words[wordId])
           state.words[wordId] = { attempts: 0, wrongAttempts: 0, skips: 0 };
         state.words[wordId].skips++;
+        state.words[wordId].cleared = false;
+      }
+
+      // A function to get the current missed-words list
+      function getMissedWords() {
+        return getAllWords().filter((w) => {
+          const rec = state.words[w.id];
+          return (
+            rec && (rec.wrongAttempts > 0 || rec.skips > 0) && !rec.cleared
+          );
+        });
       }
 
       function updateStatsBar() {
@@ -838,7 +912,22 @@
           };
           materialRow.appendChild(card);
         });
+
+        // Show/hide it with a live count
+        const missed = getMissedWords();
+        const missedBtn = document.getElementById("practice-missed-btn");
+        if (missed.length > 0) {
+          missedBtn.style.display = "block";
+          missedBtn.textContent = `🔁 Practice Missed Words (${missed.length})`;
+        } else {
+          missedBtn.style.display = "none";
+        }
       }
+
+      // Wire the click
+      document.getElementById("practice-missed-btn").onclick = () => {
+        startGame(getMissedWords(), { practiceMode: true });
+      };
 
       // Leaderboard Script
       function getLeaderboard() {
@@ -992,10 +1081,16 @@
 
       let slotSortables = [];
       let sortableTray;
+      let timerInterval = null;
 
-      function startGame(words) {
+      // to support practice mode and reset per-session tracking
+      function startGame(words, options = {}) {
         state.queue = shuffleArray([...words]);
         state.index = 0;
+        state.recycled = new Set();
+        state.resurfaceIds = new Set();
+        state.practiceMode = !!options.practiceMode;
+        state.sessionStarted = false;
         showScreen("game");
         renderWord();
       }
@@ -1026,6 +1121,19 @@
         document.getElementById("clue-ipa").textContent = current.ipa;
         document.getElementById("btn-pronounce").onclick = () =>
           speakWord(current.word);
+
+        if (!state.sessionStarted) {
+          state.sessionStarted = true;
+          document.getElementById("timer-value").textContent = "⏳";
+          showModal(
+            "⏱ Get ready! The timer starts as soon as you tap Start.",
+            "Start",
+            () => startTimer(current.word),
+          );
+        } else {
+          startTimer(current.word);
+        }
+
         answerSlots.innerHTML = "";
         tileTray.innerHTML = "";
 
@@ -1077,11 +1185,6 @@
             if (bumped) evt.from.appendChild(bumped);
           }
         }
-
-        // sortableTray = new Sortable(tileTray, {
-        //   group: "tiles",
-        //   animation: 150,
-        // });
       }
 
       /* Click/tap a tile as an alternative to dragging it.
@@ -1110,24 +1213,45 @@
           .join("");
 
         state.attempts++;
-        recordAttempt(current.id, placed !== current.word.toLowerCase());
 
         if (placed === current.word.toLowerCase()) {
-          feedback.textContent =
-            state.attempts === 1
-              ? "🎉 Perfect on the first try!"
-              : "✅ Correct!";
-          feedback.className = "correct";
-          if (state.attempts === 1) {
+          stopTimer();
+          recordAttempt(current.id, false);
+
+          if (state.practiceMode) {
+            if (!state.words[current.id])
+              state.words[current.id] = {
+                attempts: 0,
+                wrongAttempts: 0,
+                skips: 0,
+              };
+            state.words[current.id].cleared = true;
+            state.resurfaceIds.delete(current.id);
+            feedback.textContent = "🏆 Mastered! +7";
+            feedback.className = "correct";
+            state.score += 7;
+            state.streak = 0;
+          } else if (state.resurfaceIds.has(current.id)) {
+            state.resurfaceIds.delete(current.id);
+            feedback.textContent = "🎉 You beat it! +7 bonus";
+            feedback.className = "correct";
+            state.score += 7;
+            state.streak = 0;
+          } else if (state.attempts === 1) {
+            feedback.textContent = "🎉 Perfect on the first try!";
+            feedback.className = "correct";
             state.score += 10;
             state.streak += 1;
           } else {
+            feedback.textContent = "✅ Correct!";
+            feedback.className = "correct";
             state.score += 5;
             state.streak = 0;
           }
           saveProgress();
           setTimeout(nextWord, 900);
         } else {
+          recordAttempt(current.id, true);
           feedback.textContent = "Not quite — try again!";
           feedback.className = "wrong";
           state.streak = 0;
@@ -1136,14 +1260,27 @@
       };
 
       document.getElementById("btn-skip").onclick = () => {
+        stopTimer();
         const current = state.queue[state.index];
         recordSkip(current.id);
         state.streak = 0;
         saveProgress();
-        nextWord();
+
+        if (!state.recycled.has(current.id)) {
+          state.recycled.add(current.id);
+          state.resurfaceIds.add(current.id);
+          state.queue.push(current);
+        }
+
+        showModal(
+          `You skipped "${current.word}". Check ${describeLocation(current)} to review it — you'll see it again soon.`,
+          "Next Word",
+          nextWord,
+        );
       };
 
       document.getElementById("btn-exit").onclick = () => {
+        stopTimer();
         showScreen("menu");
         renderMenu();
       };
@@ -1151,6 +1288,7 @@
       function nextWord() {
         state.index++;
         if (state.index >= state.queue.length) {
+          stopTimer();
           feedback.textContent =
             "🏁 Set complete! Choose something else to practice.";
           feedback.className = "correct";
@@ -1257,6 +1395,77 @@
         const utterance = new SpeechSynthesisUtterance(word);
         utterance.lang = "en-GB";
         speechSynthesis.speak(utterance);
+      }
+
+      // A helper to describe where a word lives in the book
+      function describeLocation(word) {
+        if (word.material === "wordbank") {
+          return `page ${word.page}${word.topic ? " (" + word.topic + ")" : ""}`;
+        }
+        return `Module ${word.module} · Unit ${word.unit} · Lesson ${word.lesson}`;
+      }
+
+      // timer functions
+      function getTimeLimit(word) {
+        return 10 + word.length * 2;
+      }
+
+      function startTimer(word) {
+        clearInterval(timerInterval);
+        let timeLeft = getTimeLimit(word);
+        const display = document.getElementById("timer-display");
+        const valueEl = document.getElementById("timer-value");
+        display.classList.remove("warning", "expired");
+        valueEl.textContent = timeLeft;
+
+        timerInterval = setInterval(() => {
+          timeLeft--;
+          valueEl.textContent = Math.max(timeLeft, 0);
+          display.classList.remove("warning", "expired");
+          if (timeLeft <= 5 && timeLeft > 0) display.classList.add("warning");
+          if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            display.classList.add("expired");
+            handleTimeout();
+          }
+        }, 1000);
+      }
+
+      function stopTimer() {
+        clearInterval(timerInterval);
+      }
+
+      function handleTimeout() {
+        const current = state.queue[state.index];
+        recordAttempt(current.id, true);
+        state.score += 2;
+        state.streak = 0;
+        saveProgress();
+
+        if (!state.recycled.has(current.id)) {
+          state.recycled.add(current.id);
+          state.resurfaceIds.add(current.id);
+          state.queue.push(current);
+        }
+
+        showModal(
+          `⏰ Time's up! The word was "${current.word}". Check ${describeLocation(current)} to review it. (+2 for trying!)`,
+          "Next Word",
+          nextWord,
+        );
+      }
+
+      //the reusable popup function
+      function showModal(message, buttonText, onDismiss) {
+        const overlay = document.getElementById("modal-overlay");
+        document.getElementById("modal-message").textContent = message;
+        const btn = document.getElementById("modal-btn");
+        btn.textContent = buttonText;
+        overlay.classList.add("active");
+        btn.onclick = () => {
+          overlay.classList.remove("active");
+          if (onDismiss) onDismiss();
+        };
       }
 
       // this is the year generated code for the footer.
