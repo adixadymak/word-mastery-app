@@ -10,6 +10,7 @@
       rel="stylesheet"
     />
     <script src="Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="data.js"></script>
     <style>
       :root {
@@ -564,6 +565,23 @@
         line-height: 1.4;
       }
 
+      .loading-text {
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.5;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      #name-search:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
       #site-footer {
         margin-top: 30px;
         font-size: 0.8rem;
@@ -684,11 +702,21 @@
     </footer>
 
     <script>
+      const SUPABASE_URL = "https://whatxknytcebjudwibcm.supabase.co";
+      const SUPABASE_ANON_KEY =
+        "sb_publishable_fiGd3r2uljra1uCNg0MOUg_ooy_TkPv";
+
+      const supabaseClient = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY,
+      );
+
       /* ---------------------------------------------------
    STATE
 --------------------------------------------------- */
       let state = {
         child: null,
+        childId: null,
         deepLink: parseDeepLink(),
         queue: [],
         index: 0,
@@ -761,40 +789,104 @@
         return chip;
       }
 
+      let PUPIL_NAMES = [];
+      let namesLoaded = false;
+
       function renderNameResults(query) {
+        const searchInput = document.getElementById("name-search");
+
+        if (!namesLoaded) {
+          rosterGrid.innerHTML = `<p class="subtitle loading-text">⏳ Loading pupil list...</p>`;
+          return;
+        }
         rosterGrid.innerHTML = "";
         if (!query) {
           rosterGrid.innerHTML = `<p class="subtitle">Start typing your name above...</p>`;
           return;
         }
-        const matches = ROSTER.filter((r) =>
-          r.name.toLowerCase().includes(query.toLowerCase()),
+        const matches = PUPIL_NAMES.filter((n) =>
+          n.toLowerCase().includes(query.toLowerCase()),
         ).slice(0, 8);
         if (matches.length === 0) {
           rosterGrid.innerHTML = `<p class="subtitle">No matches — check your spelling.</p>`;
           return;
         }
-        matches.forEach((r) => rosterGrid.appendChild(createNameChip(r.name)));
+        matches.forEach((name) => rosterGrid.appendChild(createNameChip(name)));
       }
 
       document.getElementById("name-search").addEventListener("input", (e) => {
         renderNameResults(e.target.value.trim());
       });
 
-      renderNameResults("");
+      async function loadPupilNames() {
+        namesLoaded = false;
+        const searchInput = document.getElementById("name-search");
+        searchInput.disabled = true;
+        searchInput.placeholder = "Loading...";
+        renderNameResults("");
 
-      document.getElementById("pin-submit").onclick = attemptLogin;
-      pinInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") attemptLogin();
-      });
+        const { data, error } = await supabaseClient.rpc("list_pupil_names");
 
-      function attemptLogin() {
+        if (error) {
+          rosterGrid.innerHTML = `<p class="subtitle">Couldn't load names — check your connection.</p>
+      <button class="btn btn-secondary" id="retry-names-btn" style="margin-top:10px;">Try Again</button>`;
+          document.getElementById("retry-names-btn").onclick = loadPupilNames;
+          return;
+        }
+
+        PUPIL_NAMES = data.map((r) => r.name);
+        namesLoaded = true;
+        searchInput.disabled = false;
+        searchInput.placeholder = "Type your name...";
+        renderNameResults(searchInput.value.trim());
+      }
+      loadPupilNames();
+
+      /* function attemptLogin() {
         const record = ROSTER.find((r) => r.name === pendingName);
         if (record && record.pin === pinInput.value) {
           state.child = record.name;
           localStorage.setItem("currentChild", state.child);
           document.getElementById("stats").style.display = "flex";
           loadProgress();
+          if (state.deepLink) {
+            startFromDeepLink();
+          } else {
+            showScreen("menu");
+            renderMenu();
+          }
+        } else {
+          loginError.textContent = "That PIN doesn't match — try again.";
+        }
+      }*/
+
+      async function setPupilFromRow(row) {
+        state.child = row.name;
+        state.childId = row.id;
+        document.getElementById("stats").style.display = "flex";
+        loadProgress();
+        state.score = row.score;
+        state.streak = row.streak;
+        updateStatsBar();
+      }
+
+      async function attemptLogin() {
+        const { data, error } = await supabaseClient.rpc("login_pupil", {
+          p_name: pendingName,
+          p_pin: pinInput.value,
+        });
+        if (error) {
+          loginError.textContent = "Something went wrong — try again.";
+          console.error(error);
+          return;
+        }
+        if (data && data.length > 0) {
+          const pupil = data[0];
+          localStorage.setItem(
+            "currentChild",
+            JSON.stringify({ id: pupil.id, name: pupil.name }),
+          );
+          await setPupilFromRow(pupil);
           if (state.deepLink) {
             startFromDeepLink();
           } else {
@@ -1472,18 +1564,20 @@
       document.getElementById("copyright-year").textContent =
         new Date().getFullYear();
 
-      function tryAutoLogin() {
+      async function tryAutoLogin() {
         const saved = localStorage.getItem("currentChild");
-        if (saved && ROSTER.some((r) => r.name === saved)) {
-          state.child = saved;
-          document.getElementById("stats").style.display = "flex";
-          loadProgress();
-          if (state.deepLink) {
-            startFromDeepLink();
-          } else {
-            showScreen("menu");
-            renderMenu();
-          }
+        if (!saved) return;
+        const { id } = JSON.parse(saved);
+        const { data, error } = await supabaseClient.rpc("get_pupil_stats", {
+          p_pupil_id: id,
+        });
+        if (error || !data || data.length === 0) return;
+        await setPupilFromRow(data[0]);
+        if (state.deepLink) {
+          startFromDeepLink();
+        } else {
+          showScreen("menu");
+          renderMenu();
         }
       }
       tryAutoLogin();
