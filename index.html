@@ -711,9 +711,13 @@
         SUPABASE_ANON_KEY,
       );
 
+      supabaseClient
+        .rpc("get_pupil_words", { p_pupil_id: 1 })
+        .then((r) => console.log("direct test:", r));
+
       /* ---------------------------------------------------
-   STATE
---------------------------------------------------- */
+         STATE
+      --------------------------------------------------- */
       let state = {
         child: null,
         childId: null,
@@ -741,8 +745,8 @@
       }
 
       /* ---------------------------------------------------
-   LOGIN
---------------------------------------------------- */
+         LOGIN
+      --------------------------------------------------- */
       const rosterGrid = document.getElementById("roster-grid");
       const pinArea = document.getElementById("pin-area");
       const pinPrompt = document.getElementById("pin-prompt");
@@ -829,7 +833,7 @@
 
         if (error) {
           rosterGrid.innerHTML = `<p class="subtitle">Couldn't load names — check your connection.</p>
-      <button class="btn btn-secondary" id="retry-names-btn" style="margin-top:10px;">Try Again</button>`;
+            <button class="btn btn-secondary" id="retry-names-btn" style="margin-top:10px;">Try Again</button>`;
           document.getElementById("retry-names-btn").onclick = loadPupilNames;
           return;
         }
@@ -842,65 +846,69 @@
       }
       loadPupilNames();
 
-      /* function attemptLogin() {
-        const record = ROSTER.find((r) => r.name === pendingName);
-        if (record && record.pin === pinInput.value) {
-          state.child = record.name;
-          localStorage.setItem("currentChild", state.child);
-          document.getElementById("stats").style.display = "flex";
-          loadProgress();
-          if (state.deepLink) {
-            startFromDeepLink();
-          } else {
-            showScreen("menu");
-            renderMenu();
-          }
-        } else {
-          loginError.textContent = "That PIN doesn't match — try again.";
+      document.getElementById("pin-submit").onclick = attemptLogin;
+
+      let PUPIL_WORDS = [];
+
+      async function loadPupilWords() {
+        const { data, error } = await supabaseClient.rpc("get_pupil_words", {
+          p_pupil_id: state.childId,
+        });
+        if (error) {
+          console.error("Failed to load words:", error);
+          return [];
         }
-      }*/
+        return data;
+      }
 
       async function setPupilFromRow(row) {
         state.child = row.name;
         state.childId = row.id;
-        document.getElementById("stats").style.display = "flex";
-        loadProgress();
         state.score = row.score;
         state.streak = row.streak;
+        document.getElementById("stats").style.display = "flex";
         updateStatsBar();
+        PUPIL_WORDS = await loadPupilWords();
       }
 
       async function attemptLogin() {
-        const { data, error } = await supabaseClient.rpc("login_pupil", {
-          p_name: pendingName,
-          p_pin: pinInput.value,
-        });
-        if (error) {
-          loginError.textContent = "Something went wrong — try again.";
-          console.error(error);
-          return;
-        }
-        if (data && data.length > 0) {
-          const pupil = data[0];
-          localStorage.setItem(
-            "currentChild",
-            JSON.stringify({ id: pupil.id, name: pupil.name }),
-          );
-          await setPupilFromRow(pupil);
-          if (state.deepLink) {
-            startFromDeepLink();
-          } else {
-            showScreen("menu");
-            renderMenu();
+        try {
+          const { data, error } = await supabaseClient.rpc("login_pupil", {
+            p_name: pendingName,
+            p_pin: pinInput.value,
+          });
+
+          if (error) {
+            loginError.textContent = "Something went wrong — try again.";
+            console.error(error);
+            return;
           }
-        } else {
-          loginError.textContent = "That PIN doesn't match — try again.";
+
+          if (data && data.length > 0) {
+            const pupil = data[0];
+            localStorage.setItem(
+              "currentChild",
+              JSON.stringify({ id: pupil.id, name: pupil.name }),
+            );
+            await setPupilFromRow(pupil);
+            if (state.deepLink) {
+              startFromDeepLink();
+            } else {
+              showScreen("menu");
+              renderMenu();
+            }
+          } else {
+            loginError.textContent = "That PIN doesn't match — try again.";
+          }
+        } catch (err) {
+          loginError.textContent = "Unexpected error — see console.";
+          console.error("attemptLogin crashed:", err);
         }
       }
 
       /* ---------------------------------------------------
-   PROGRESS (localStorage stand-in for future Firebase)
---------------------------------------------------- */
+         PROGRESS (localStorage stand-in for future Firebase)
+      --------------------------------------------------- */
       function progressKey() {
         return `wordmastery_${state.child}`;
       }
@@ -936,23 +944,30 @@
       }
 
       // to reset "cleared" status
-      function recordAttempt(wordId, wasWrong) {
-        if (!state.words[wordId])
-          state.words[wordId] = { attempts: 0, wrongAttempts: 0, skips: 0 };
-        state.words[wordId].attempts++;
-        if (wasWrong) {
-          state.words[wordId].wrongAttempts++;
-          state.words[wordId].cleared = false;
-        }
+      async function recordAttempt(wordId, wasWrong) {
+        const { error } = await supabaseClient.rpc("record_attempt", {
+          p_pupil_id: state.childId,
+          p_word_id: wordId,
+          p_wrong: wasWrong,
+        });
+        if (error) console.error("record_attempt failed:", error);
       }
 
-      function recordSkip(wordId) {
-        if (!state.words[wordId])
-          state.words[wordId] = { attempts: 0, wrongAttempts: 0, skips: 0 };
-        state.words[wordId].skips++;
-        state.words[wordId].cleared = false;
+      async function recordSkip(wordId) {
+        const { error } = await supabaseClient.rpc("record_skip", {
+          p_pupil_id: state.childId,
+          p_word_id: wordId,
+        });
+        if (error) console.error("record_skip failed:", error);
       }
 
+      async function markWordCleared(wordId) {
+        const { error } = await supabaseClient.rpc("mark_word_cleared", {
+          p_pupil_id: state.childId,
+          p_word_id: wordId,
+        });
+        if (error) console.error("mark_word_cleared failed:", error);
+      }
       // A function to get the current missed-words list
       function getMissedWords() {
         return getAllWords().filter((w) => {
@@ -969,9 +984,29 @@
           `🔥 ${state.streak}`;
       }
 
+      // score/streak saving
+      async function updatePupilStats(scoreDelta, newStreak) {
+        state.score += scoreDelta;
+        state.streak = newStreak;
+        updateStatsBar();
+        const { data, error } = await supabaseClient.rpc("update_pupil_stats", {
+          p_pupil_id: state.childId,
+          p_score_delta: scoreDelta,
+          p_new_streak: newStreak,
+        });
+        if (error) {
+          console.error("update_pupil_stats failed:", error);
+          return;
+        }
+        if (data && data.length > 0) {
+          state.score = data[0].score;
+          state.streak = data[0].streak;
+          updateStatsBar();
+        }
+      }
       /* ---------------------------------------------------
-   SCREEN SWITCHING
---------------------------------------------------- */
+         SCREEN SWITCHING
+      --------------------------------------------------- */
       function showScreen(name) {
         document
           .querySelectorAll(".screen")
@@ -980,8 +1015,8 @@
       }
 
       /* ---------------------------------------------------
-   MENU
---------------------------------------------------- */
+         MENU
+      --------------------------------------------------- */
       const materialRow = document.getElementById("material-row");
       const submenu = document.getElementById("submenu");
 
@@ -995,7 +1030,9 @@
         submenu.innerHTML = "";
         Object.keys(MATERIAL_LABELS).forEach((matKey) => {
           const info = MATERIAL_LABELS[matKey];
-          const isLocked = matKey !== "part1" && !state.unlocked[matKey];
+          const isLocked =
+            matKey !== "part1" &&
+            !PUPIL_WORDS.some((w) => w.material === matKey);
           const card = document.createElement("div");
           card.className = `material-card ${info.cls}${isLocked ? " locked" : ""}`;
           card.innerHTML = `<div><h3>${info.title}</h3><div class="subtitle">${isLocked ? "🔒 Not unlocked yet" : info.subtitle}</div></div><div>${isLocked ? "🔒" : "▶"}</div>`;
@@ -1036,38 +1073,48 @@
         return entries;
       }
 
-      function renderLeaderboard() {
-        const board = getLeaderboard();
-        const medals = ["🥇", "🥈", "🥉"];
+      async function renderLeaderboard() {
         const list = document.getElementById("leaderboard-list");
+        const myRankEl = document.getElementById("my-rank");
+        list.innerHTML = `<p class="subtitle">Loading...</p>`;
+        myRankEl.textContent = "";
+
+        const { data: board, error } =
+          await supabaseClient.rpc("get_leaderboard");
+        if (error || !board) {
+          list.innerHTML = `<p class="subtitle">Couldn't load leaderboard.</p>`;
+          console.error("get_leaderboard failed:", error);
+          return;
+        }
+
+        const medals = ["🥇", "🥈", "🥉"];
         list.innerHTML = board
-          .slice(0, 3)
           .map(
             (e, i) =>
-              `<div class="leaderboard-row ${e.name === state.child ? "me" : ""}"> 
-       <span>${medals[i]} ${e.name}</span> <span>${e.score}</span>
-      </div>
-    `,
+              `<div class="leaderboard-row ${e.name === state.child ? "me" : ""}">
+       <span>${medals[i]} ${e.name}</span><span>${e.score}</span>
+     </div>`,
           )
           .join("");
 
-        const myRank = board.findIndex((e) => e.name === state.child) + 1;
-        const myRankEl = document.getElementById("my-rank");
-        myRankEl.textContent =
-          myRank > 3
-            ? `You're #${myRank} with ${board[myRank - 1].score} points - keep going!`
-            : "";
+        const { data: myRank, error: rankError } = await supabaseClient.rpc(
+          "get_pupil_rank",
+          { p_pupil_id: state.childId },
+        );
+        if (!rankError && myRank && myRank > 3) {
+          myRankEl.textContent = `You're #${myRank} — keep going!`;
+        }
       }
 
       /*
-      clicking a material now hides the other two cards and the random-everything button entirely, replacing the view with just that material's options plus a Back button. No more ambiguity about which section the chips belong to.
-      */
+            clicking a material now hides the other two cards and the random-everything button entirely, replacing the view with just that material's options plus a Back button. No more ambiguity about which section the chips belong to.
+            */
 
       function renderSubmenu(material) {
         materialRow.style.display = "none";
         document.getElementById("random-everything-btn").style.display = "none";
 
-        const words = getAllWords().filter((w) => w.material === material);
+        const words = PUPIL_WORDS.filter((w) => w.material === material);
 
         let html = `<div class="card"><h3>${MATERIAL_LABELS[material].title}</h3>`;
         html += `<p class="subtitle">Choose how to practice:</p>`;
@@ -1078,25 +1125,25 @@
           html += `<div class="chip-row" id="topic-chips"></div>`;
         } else {
           html += `
-      <div class="stepper-group">
-        <div class="stepper">
-          <button class="stepper-btn" id="module-prev">−</button>
-          <div class="stepper-value"><span class="stepper-label">Module</span><span id="module-display">1</span></div>
-          <button class="stepper-btn" id="module-next">+</button>
-        </div>
-        <div class="stepper">
-          <button class="stepper-btn" id="unit-prev">−</button>
-          <div class="stepper-value"><span class="stepper-label">Unit</span><span id="unit-display">1</span></div>
-          <button class="stepper-btn" id="unit-next">+</button>
-        </div>
-        <div class="stepper">
-          <button class="stepper-btn" id="lesson-prev">−</button>
-          <div class="stepper-value"><span class="stepper-label">Lesson</span><span id="lesson-display">1</span></div>
-          <button class="stepper-btn" id="lesson-next">+</button>
-        </div>
-      </div>
-      <button class="btn btn-primary" id="lesson-start-btn" style="margin-top:14px;width:100%;">▶ Start Practicing</button>
-    `;
+            <div class="stepper-group">
+              <div class="stepper">
+                <button class="stepper-btn" id="module-prev">−</button>
+                <div class="stepper-value"><span class="stepper-label">Module</span><span id="module-display">1</span></div>
+                <button class="stepper-btn" id="module-next">+</button>
+              </div>
+              <div class="stepper">
+                <button class="stepper-btn" id="unit-prev">−</button>
+                <div class="stepper-value"><span class="stepper-label">Unit</span><span id="unit-display">1</span></div>
+                <button class="stepper-btn" id="unit-next">+</button>
+              </div>
+              <div class="stepper">
+                <button class="stepper-btn" id="lesson-prev">−</button>
+                <div class="stepper-value"><span class="stepper-label">Lesson</span><span id="lesson-display">1</span></div>
+                <button class="stepper-btn" id="lesson-next">+</button>
+              </div>
+            </div>
+            <button class="btn btn-primary" id="lesson-start-btn" style="margin-top:14px;width:100%;">▶ Start Practicing</button>
+          `;
         }
 
         html += `<p class="subtitle" style="margin-top:14px;">Or:</p>`;
@@ -1142,18 +1189,15 @@
 
       // Script for random-everything-btn
       document.getElementById("random-everything-btn").onclick = () => {
-        const unlockedWords = getAllWords().filter(
-          (w) => w.material === "part1" || state.unlocked[w.material],
-        );
-        startGame(shuffleArray(unlockedWords));
+        startGame(shuffleArray([...PUPIL_WORDS]));
       };
 
       /* ---------------------------------------------------
-   DEEP LINK (dedicated video link → locked practice)
---------------------------------------------------- */
+         DEEP LINK (dedicated video link → locked practice)
+      --------------------------------------------------- */
       function startFromDeepLink() {
         const dl = state.deepLink;
-        let words = getAllWords().filter((w) => w.material === dl.material);
+        let words = PUPIL_WORDS.filter((w) => w.material === dl.material);
         if (dl.page) words = words.filter((w) => w.page === dl.page);
         if (dl.topic) words = words.filter((w) => w.topic === dl.topic);
         if (words.length === 0) {
@@ -1165,8 +1209,8 @@
       }
 
       /* ---------------------------------------------------
-   GAME LOOP
---------------------------------------------------- */
+         GAME LOOP
+      --------------------------------------------------- */
       const answerSlots = document.getElementById("answer-slots");
       const tileTray = document.getElementById("tile-tray");
       const feedback = document.getElementById("feedback");
@@ -1280,8 +1324,8 @@
       }
 
       /* Click/tap a tile as an alternative to dragging it.
-   Tapping a tile in the tray moves it to the answer.
-   Tapping a tile in the answer sends it back to the tray. */
+         Tapping a tile in the tray moves it to the answer.
+         Tapping a tile in the answer sends it back to the tray. */
       function handleTileTap(e) {
         const tile = e.target.closest(".tile");
         if (!tile) return;
@@ -1311,43 +1355,31 @@
           recordAttempt(current.id, false);
 
           if (state.practiceMode) {
-            if (!state.words[current.id])
-              state.words[current.id] = {
-                attempts: 0,
-                wrongAttempts: 0,
-                skips: 0,
-              };
-            state.words[current.id].cleared = true;
+            markWordCleared(current.id);
             state.resurfaceIds.delete(current.id);
             feedback.textContent = "🏆 Mastered! +7";
             feedback.className = "correct";
-            state.score += 7;
-            state.streak = 0;
+            updatePupilStats(7, 0);
           } else if (state.resurfaceIds.has(current.id)) {
             state.resurfaceIds.delete(current.id);
             feedback.textContent = "🎉 You beat it! +7 bonus";
             feedback.className = "correct";
-            state.score += 7;
-            state.streak = 0;
+            updatePupilStats(7, 0);
           } else if (state.attempts === 1) {
             feedback.textContent = "🎉 Perfect on the first try!";
             feedback.className = "correct";
-            state.score += 10;
-            state.streak += 1;
+            updatePupilStats(10, state.streak + 1);
           } else {
             feedback.textContent = "✅ Correct!";
             feedback.className = "correct";
-            state.score += 5;
-            state.streak = 0;
+            updatePupilStats(5, 0);
           }
-          saveProgress();
           setTimeout(nextWord, 900);
         } else {
           recordAttempt(current.id, true);
           feedback.textContent = "Not quite — try again!";
           feedback.className = "wrong";
-          state.streak = 0;
-          saveProgress();
+          updatePupilStats(0, 0);
         }
       };
 
@@ -1355,8 +1387,7 @@
         stopTimer();
         const current = state.queue[state.index];
         recordSkip(current.id);
-        state.streak = 0;
-        saveProgress();
+        updatePupilStats(0, 0);
 
         if (!state.recycled.has(current.id)) {
           state.recycled.add(current.id);
@@ -1530,9 +1561,7 @@
       function handleTimeout() {
         const current = state.queue[state.index];
         recordAttempt(current.id, true);
-        state.score += 2;
-        state.streak = 0;
-        saveProgress();
+        updatePupilStats(2, 0);
 
         if (!state.recycled.has(current.id)) {
           state.recycled.add(current.id);
