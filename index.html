@@ -588,6 +588,15 @@
         color: var(--chalk-dim);
         text-align: center;
       }
+
+      .stepper-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+      #lesson-start-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
     </style>
   </head>
   <body>
@@ -711,13 +720,9 @@
         SUPABASE_ANON_KEY,
       );
 
-      supabaseClient
-        .rpc("get_pupil_words", { p_pupil_id: 1 })
-        .then((r) => console.log("direct test:", r));
-
       /* ---------------------------------------------------
-         STATE
-      --------------------------------------------------- */
+               STATE
+            --------------------------------------------------- */
       let state = {
         child: null,
         childId: null,
@@ -745,15 +750,15 @@
       }
 
       /* ---------------------------------------------------
-         LOGIN
-      --------------------------------------------------- */
+               LOGIN
+            --------------------------------------------------- */
       const rosterGrid = document.getElementById("roster-grid");
       const pinArea = document.getElementById("pin-area");
       const pinPrompt = document.getElementById("pin-prompt");
       const pinInput = document.getElementById("pin-input");
       const loginError = document.getElementById("login-error");
       let pendingName = null;
-
+      /*
       ROSTER.forEach((r) => {
         const chip = document.createElement("div");
         chip.className = "name-chip";
@@ -772,7 +777,7 @@
         };
         rosterGrid.appendChild(chip);
       });
-
+*/
       // The search name function
       function createNameChip(name) {
         const chip = document.createElement("div");
@@ -833,7 +838,7 @@
 
         if (error) {
           rosterGrid.innerHTML = `<p class="subtitle">Couldn't load names — check your connection.</p>
-            <button class="btn btn-secondary" id="retry-names-btn" style="margin-top:10px;">Try Again</button>`;
+                  <button class="btn btn-secondary" id="retry-names-btn" style="margin-top:10px;">Try Again</button>`;
           document.getElementById("retry-names-btn").onclick = loadPupilNames;
           return;
         }
@@ -866,6 +871,8 @@
         state.childId = row.id;
         state.score = row.score;
         state.streak = row.streak;
+        state.unlockedSequence = row.unlocked_lesson_sequence;
+        state.wordbankUnlocked = row.wordbank_unlocked;
         document.getElementById("stats").style.display = "flex";
         updateStatsBar();
         PUPIL_WORDS = await loadPupilWords();
@@ -907,8 +914,8 @@
       }
 
       /* ---------------------------------------------------
-         PROGRESS (localStorage stand-in for future Firebase)
-      --------------------------------------------------- */
+               PROGRESS (localStorage stand-in for future Firebase)
+            --------------------------------------------------- */
       function progressKey() {
         return `wordmastery_${state.child}`;
       }
@@ -968,15 +975,6 @@
         });
         if (error) console.error("mark_word_cleared failed:", error);
       }
-      // A function to get the current missed-words list
-      function getMissedWords() {
-        return getAllWords().filter((w) => {
-          const rec = state.words[w.id];
-          return (
-            rec && (rec.wrongAttempts > 0 || rec.skips > 0) && !rec.cleared
-          );
-        });
-      }
 
       function updateStatsBar() {
         document.getElementById("stat-score").textContent = `⭐ ${state.score}`;
@@ -1005,8 +1003,8 @@
         }
       }
       /* ---------------------------------------------------
-         SCREEN SWITCHING
-      --------------------------------------------------- */
+               SCREEN SWITCHING
+            --------------------------------------------------- */
       function showScreen(name) {
         document
           .querySelectorAll(".screen")
@@ -1015,8 +1013,8 @@
       }
 
       /* ---------------------------------------------------
-         MENU
-      --------------------------------------------------- */
+               MENU
+            --------------------------------------------------- */
       const materialRow = document.getElementById("material-row");
       const submenu = document.getElementById("submenu");
 
@@ -1026,6 +1024,8 @@
         document.getElementById("menu-greeting").textContent =
           `Hi ${state.child}! What do you want to practice?`;
         renderLeaderboard();
+        updateMissedWordsButton();
+
         materialRow.innerHTML = "";
         submenu.innerHTML = "";
         Object.keys(MATERIAL_LABELS).forEach((matKey) => {
@@ -1041,22 +1041,29 @@
           };
           materialRow.appendChild(card);
         });
+      }
 
-        // Show/hide it with a live count
-        const missed = getMissedWords();
+      // Show/hide it with a live count
+      async function updateMissedWordsButton() {
         const missedBtn = document.getElementById("practice-missed-btn");
-        if (missed.length > 0) {
+        const { data, error } = await supabaseClient.rpc("get_missed_words", {
+          p_pupil_id: state.childId,
+        });
+
+        if (error || !data) {
+          missedBtn.style.display = "none";
+          console.error("get_missed_words failed:", error);
+          return;
+        }
+
+        if (data.length > 0) {
           missedBtn.style.display = "block";
-          missedBtn.textContent = `🔁 Practice Missed Words (${missed.length})`;
+          missedBtn.textContent = `🔁 Practice Missed Words (${data.length})`;
+          missedBtn.onclick = () => startGame(data, { practiceMode: true });
         } else {
           missedBtn.style.display = "none";
         }
       }
-
-      // Wire the click
-      document.getElementById("practice-missed-btn").onclick = () => {
-        startGame(getMissedWords(), { practiceMode: true });
-      };
 
       // Leaderboard Script
       function getLeaderboard() {
@@ -1092,8 +1099,8 @@
           .map(
             (e, i) =>
               `<div class="leaderboard-row ${e.name === state.child ? "me" : ""}">
-       <span>${medals[i]} ${e.name}</span><span>${e.score}</span>
-     </div>`,
+             <span>${medals[i]} ${e.name}</span><span>${e.score}</span>
+           </div>`,
           )
           .join("");
 
@@ -1107,8 +1114,8 @@
       }
 
       /*
-            clicking a material now hides the other two cards and the random-everything button entirely, replacing the view with just that material's options plus a Back button. No more ambiguity about which section the chips belong to.
-            */
+                  clicking a material now hides the other two cards and the random-everything button entirely, replacing the view with just that material's options plus a Back button. No more ambiguity about which section the chips belong to.
+                  */
 
       function renderSubmenu(material) {
         materialRow.style.display = "none";
@@ -1125,25 +1132,25 @@
           html += `<div class="chip-row" id="topic-chips"></div>`;
         } else {
           html += `
-            <div class="stepper-group">
-              <div class="stepper">
-                <button class="stepper-btn" id="module-prev">−</button>
-                <div class="stepper-value"><span class="stepper-label">Module</span><span id="module-display">1</span></div>
-                <button class="stepper-btn" id="module-next">+</button>
-              </div>
-              <div class="stepper">
-                <button class="stepper-btn" id="unit-prev">−</button>
-                <div class="stepper-value"><span class="stepper-label">Unit</span><span id="unit-display">1</span></div>
-                <button class="stepper-btn" id="unit-next">+</button>
-              </div>
-              <div class="stepper">
-                <button class="stepper-btn" id="lesson-prev">−</button>
-                <div class="stepper-value"><span class="stepper-label">Lesson</span><span id="lesson-display">1</span></div>
-                <button class="stepper-btn" id="lesson-next">+</button>
-              </div>
-            </div>
-            <button class="btn btn-primary" id="lesson-start-btn" style="margin-top:14px;width:100%;">▶ Start Practicing</button>
-          `;
+                  <div class="stepper-group">
+                    <div class="stepper">
+                      <button class="stepper-btn" id="module-prev">−</button>
+                      <div class="stepper-value"><span class="stepper-label">Module</span><span id="module-display">1</span></div>
+                      <button class="stepper-btn" id="module-next">+</button>
+                    </div>
+                    <div class="stepper">
+                      <button class="stepper-btn" id="unit-prev">−</button>
+                      <div class="stepper-value"><span class="stepper-label">Unit</span><span id="unit-display">1</span></div>
+                      <button class="stepper-btn" id="unit-next">+</button>
+                    </div>
+                    <div class="stepper">
+                      <button class="stepper-btn" id="lesson-prev">−</button>
+                      <div class="stepper-value"><span class="stepper-label">Lesson</span><span id="lesson-display">1</span></div>
+                      <button class="stepper-btn" id="lesson-next">+</button>
+                    </div>
+                  </div>
+                  <button class="btn btn-primary" id="lesson-start-btn" style="margin-top:14px;width:100%;">▶ Start Practicing</button> <div id="lesson-lock-message" style="margin-top:10px;"></div>
+                `;
         }
 
         html += `<p class="subtitle" style="margin-top:14px;">Or:</p>`;
@@ -1175,7 +1182,7 @@
             topicChips.appendChild(chip);
           });
         } else {
-          buildLessonPicker(words);
+          buildLessonPicker(material, words);
         }
 
         document.getElementById("random-btn").onclick = () =>
@@ -1193,8 +1200,8 @@
       };
 
       /* ---------------------------------------------------
-         DEEP LINK (dedicated video link → locked practice)
-      --------------------------------------------------- */
+               DEEP LINK (dedicated video link → locked practice)
+            --------------------------------------------------- */
       function startFromDeepLink() {
         const dl = state.deepLink;
         let words = PUPIL_WORDS.filter((w) => w.material === dl.material);
@@ -1209,8 +1216,8 @@
       }
 
       /* ---------------------------------------------------
-         GAME LOOP
-      --------------------------------------------------- */
+               GAME LOOP
+            --------------------------------------------------- */
       const answerSlots = document.getElementById("answer-slots");
       const tileTray = document.getElementById("tile-tray");
       const feedback = document.getElementById("feedback");
@@ -1324,8 +1331,8 @@
       }
 
       /* Click/tap a tile as an alternative to dragging it.
-         Tapping a tile in the tray moves it to the answer.
-         Tapping a tile in the answer sends it back to the tray. */
+               Tapping a tile in the tray moves it to the answer.
+               Tapping a tile in the answer sends it back to the tray. */
       function handleTileTap(e) {
         const tile = e.target.closest(".tile");
         if (!tile) return;
@@ -1438,8 +1445,17 @@
       document.getElementById("btn-logout").onclick = logout;
 
       // Add the picker logic
-      function buildLessonPicker(words) {
-        const modules = [...new Set(words.map((w) => w.module))].sort(
+      async function buildLessonPicker(material, unlockedWords) {
+        const { data: structure, error } = await supabaseClient.rpc(
+          "get_curriculum_structure",
+          { p_material: material },
+        );
+        if (error || !structure || structure.length === 0) {
+          console.error("get_curriculum_structure failed:", error);
+          return;
+        }
+
+        const modules = [...new Set(structure.map((s) => s.module))].sort(
           (a, b) => a - b,
         );
         let mIdx = 0;
@@ -1447,27 +1463,73 @@
         const unitsFor = (mod) =>
           [
             ...new Set(
-              words.filter((w) => w.module === mod).map((w) => w.unit),
+              structure.filter((s) => s.module === mod).map((s) => s.unit),
             ),
           ].sort((a, b) => a - b);
         const lessonsFor = (mod, unit) =>
           [
             ...new Set(
-              words
-                .filter((w) => w.module === mod && w.unit === unit)
-                .map((w) => w.lesson),
+              structure
+                .filter((s) => s.module === mod && s.unit === unit)
+                .map((s) => s.lesson),
             ),
           ].sort((a, b) => a - b);
+        const sequenceFor = (mod, unit, lesson) => {
+          const row = structure.find(
+            (s) => s.module === mod && s.unit === unit && s.lesson === lesson,
+          );
+          return row ? row.lesson_sequence : null;
+        };
 
         let units = unitsFor(modules[mIdx]);
         let uIdx = 0;
         let lessons = lessonsFor(modules[mIdx], units[uIdx]);
         let lIdx = 0;
 
+        const startBtn = document.getElementById("lesson-start-btn");
+        const lockMsg = document.getElementById("lesson-lock-message");
+
         function refresh() {
           document.getElementById("module-display").textContent = modules[mIdx];
           document.getElementById("unit-display").textContent = units[uIdx];
           document.getElementById("lesson-display").textContent = lessons[lIdx];
+
+          document.getElementById("module-prev").disabled = mIdx === 0;
+          document.getElementById("module-next").disabled =
+            mIdx === modules.length - 1;
+          document.getElementById("unit-prev").disabled = uIdx === 0;
+          document.getElementById("unit-next").disabled =
+            uIdx === units.length - 1;
+          document.getElementById("lesson-prev").disabled = lIdx === 0;
+          document.getElementById("lesson-next").disabled =
+            lIdx === lessons.length - 1;
+
+          const seq = sequenceFor(modules[mIdx], units[uIdx], lessons[lIdx]);
+          const isUnlocked = seq !== null && seq <= state.unlockedSequence;
+
+          if (isUnlocked) {
+            startBtn.disabled = false;
+            startBtn.textContent = "▶ Start Practicing";
+            lockMsg.innerHTML = "";
+          } else {
+            startBtn.disabled = true;
+            startBtn.textContent = "🔒 Locked";
+            lockMsg.innerHTML = `<p class="subtitle">Complete the previous lesson first to unlock this one.</p>
+        <button class="btn btn-secondary" id="go-to-current-btn">Go to my next lesson</button>`;
+            document.getElementById("go-to-current-btn").onclick = () => {
+              const target = structure.find(
+                (s) => s.lesson_sequence === state.unlockedSequence,
+              );
+              if (target) {
+                mIdx = modules.indexOf(target.module);
+                units = unitsFor(modules[mIdx]);
+                uIdx = units.indexOf(target.unit);
+                lessons = lessonsFor(modules[mIdx], units[uIdx]);
+                lIdx = lessons.indexOf(target.lesson);
+                refresh();
+              }
+            };
+          }
         }
 
         function changeModule(dir) {
@@ -1496,9 +1558,11 @@
         document.getElementById("lesson-prev").onclick = () => changeLesson(-1);
         document.getElementById("lesson-next").onclick = () => changeLesson(1);
 
-        document.getElementById("lesson-start-btn").onclick = () => {
+        startBtn.onclick = () => {
+          const seq = sequenceFor(modules[mIdx], units[uIdx], lessons[lIdx]);
+          if (seq === null || seq > state.unlockedSequence) return;
           startGame(
-            words.filter(
+            unlockedWords.filter(
               (w) =>
                 w.module === modules[mIdx] &&
                 w.unit === units[uIdx] &&
@@ -1509,7 +1573,7 @@
 
         refresh();
       }
-
+      // function for speaking button
       function speakWord(word) {
         if (!("speechSynthesis" in window)) {
           alert("Sorry, this browser doesn't support audio pronunciation.");
