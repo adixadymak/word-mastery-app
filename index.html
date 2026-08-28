@@ -11,6 +11,7 @@
     />
     <script src="Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <script src="data.js"></script>
     <style>
       :root {
@@ -711,13 +712,9 @@
     </footer>
 
     <script>
-      const SUPABASE_URL = "https://whatxknytcebjudwibcm.supabase.co";
-      const SUPABASE_ANON_KEY =
-        "sb_publishable_fiGd3r2uljra1uCNg0MOUg_ooy_TkPv";
-
       const supabaseClient = window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_ANON_KEY,
+        window.SUPABASE_URL,
+        window.SUPABASE_ANON_KEY,
       );
 
       /* ---------------------------------------------------
