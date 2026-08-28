@@ -3,7 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Word Mastery — Prototype</title>
+    <title>Word Mastery</title>
+    <meta
+      name="description"
+      content="Master words spelling through interactive word games — built for the HMC Foundational Literacy Skills Mastery program."
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap"
@@ -85,6 +89,13 @@
         border-radius: 50%;
         background: var(--coral);
         box-shadow: 0 0 0 4px rgba(255, 107, 91, 0.25);
+      }
+
+      .tagline {
+        font-size: 0.7rem;
+        font-weight: 400;
+        color: var(--chalk-dim);
+        margin-top: -2px;
       }
       #stats {
         display: none;
@@ -603,7 +614,11 @@
   <body>
     <div id="topbar">
       <div class="brand">
-        <span class="dot"></span><span>Word Mastery</span>
+        <span class="dot"></span>
+        <div>
+          <div>Word Mastery</div>
+          <div class="tagline">Spelling practice</div>
+        </div>
       </div>
       <div id="stats">
         <span id="stat-score">⭐ 0</span><span id="stat-streak">🔥 0</span
