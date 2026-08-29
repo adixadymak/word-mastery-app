@@ -1101,39 +1101,39 @@
         return entries;
       }
 
-      async function renderLeaderboard() {
-        const list = document.getElementById("leaderboard-list");
-        const myRankEl = document.getElementById("my-rank");
-        list.innerHTML = `<p class="subtitle">Loading...</p>`;
-        myRankEl.textContent = "";
+       async function renderLeaderboard(){
+  const list = document.getElementById("leaderboard-list");
+  const myRankEl = document.getElementById("my-rank");
+  list.innerHTML = `<p class="subtitle">Loading...</p>`;
+  myRankEl.textContent = "";
 
-        const { data: board, error } =
-          await supabaseClient.rpc("get_leaderboard");
-        if (error || !board) {
-          list.innerHTML = `<p class="subtitle">Couldn't load leaderboard.</p>`;
-          console.error("get_leaderboard failed:", error);
-          return;
-        }
+  const { data: board, error } = await supabaseClient.rpc("get_leaderboard");
+  if(error || !board){
+    list.innerHTML = `<p class="subtitle">Couldn't load leaderboard.</p>`;
+    console.error("get_leaderboard failed:", error);
+    return;
+  }
 
-        const medals = ["🥇", "🥈", "🥉"];
-        list.innerHTML = board
-          .map(
-            (e, i) =>
-              `<div class="leaderboard-row ${e.name === state.child ? "me" : ""}">
-             <span>${medals[i]} ${e.name}</span><span>${e.score}</span>
-           </div>`,
-          )
-          .join("");
+  if(board.length === 0){
+    list.innerHTML = `<p class="subtitle">🏆 No scores yet — be the first!</p>`;
+    return;
+  }
 
-        const { data: myRank, error: rankError } = await supabaseClient.rpc(
-          "get_pupil_rank",
-          { p_pupil_id: state.childId },
-        );
-        if (!rankError && myRank && myRank > 3) {
-          myRankEl.textContent = `You're #${myRank} — keep going!`;
-        }
-      }
+  const medals = ["🥇", "🥈", "🥉"];
+  list.innerHTML = board.map((e, i) =>
+    `<div class="leaderboard-row ${e.name === state.child ? "me" : ""}">
+       <span>${medals[i]} ${e.name}</span><span>${e.score}</span>
+     </div>`
+  ).join("");
 
+  if(state.score > 0){
+    const { data: myRank, error: rankError } = await supabaseClient.rpc("get_pupil_rank", { p_pupil_id: state.childId });
+    if(!rankError && myRank && myRank > 3){
+      myRankEl.textContent = `You're #${myRank} — keep going!`;
+    }
+  }
+}
+      
       /*
                   clicking a material now hides the other two cards and the random-everything button entirely, replacing the view with just that material's options plus a Back button. No more ambiguity about which section the chips belong to.
                   */
